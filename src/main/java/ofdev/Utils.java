@@ -191,7 +191,6 @@ public class Utils {
             }
         } catch (Throwable t) {
             t.printStackTrace();
-            throw t;
         }
     }
 }
