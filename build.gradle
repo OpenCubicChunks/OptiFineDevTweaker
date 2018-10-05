@@ -5,8 +5,11 @@ buildscript {
     }
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
     }
 }
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'java'
 apply plugin: 'net.minecraftforge.gradle.forge'
 //Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
 
@@ -34,6 +37,7 @@ minecraft {
 }
 
 dependencies {
+    compile("org.ow2.asm:asm-debug-all:5.2")
     // you may put jars on which you depend on in ./libs
     // or you may define them like so..
     //compile "some.group:artifact:version:classifier"
@@ -76,8 +80,6 @@ processResources {
     }
 }
 
-
-
 jar {
     manifest.attributes(
             "TweakClass": "ofdev.OptifineDevTweakerWrapper",
@@ -85,3 +87,11 @@ jar {
     )
 }
 
+shadowJar {
+    dependencies {
+        include(dependency('org.ow2.asm:asm-debug-all:5.2'))
+    }
+    relocate 'org.objectweb', 'ofdev.org.objectweb'
+    classifier = "-all"
+}
+build.dependsOn(shadowJar)
