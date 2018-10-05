@@ -10,7 +10,6 @@ import java.util.Set;
 
 import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
-import net.minecraftforge.fml.common.FMLLog;
 import net.minecraftforge.fml.common.patcher.ClassPatchManager;
 
 import org.objectweb.asm.ClassReader;
@@ -50,13 +49,6 @@ public class OptifineDevRemapper extends Remapper {
 
     private LaunchClassLoader classLoader;
 
-
-    private static final boolean DEBUG_REMAPPING = Boolean.parseBoolean(System.getProperty("fml.remappingDebug", "false"));
-    private static final boolean DUMP_FIELD_MAPS =
-            Boolean.parseBoolean(System.getProperty("fml.remappingDebug.dumpFieldMaps", "false")) && DEBUG_REMAPPING;
-    private static final boolean DUMP_METHOD_MAPS =
-            Boolean.parseBoolean(System.getProperty("fml.remappingDebug.dumpMethodMaps", "false")) && DEBUG_REMAPPING;
-
     private OptifineDevRemapper(String property) {
         classNameBiMap = ImmutableBiMap.of();
         setup(Launch.classLoader, property);
@@ -68,8 +60,6 @@ public class OptifineDevRemapper extends Remapper {
             List<String> srgList;
 
             srgList = Files.readLines(new File(gradleStartProp), StandardCharsets.UTF_8);
-            FMLLog.log.debug("Loading deobfuscation resource {} with {} records", gradleStartProp, srgList.size());
-
             rawMethodMaps = Maps.newHashMap();
             rawFieldMaps = Maps.newHashMap();
             Builder<String, String> builder = ImmutableBiMap.builder();
@@ -87,7 +77,7 @@ public class OptifineDevRemapper extends Remapper {
             }
             classNameBiMap = builder.build();
         } catch (IOException ioe) {
-            FMLLog.log.error("An error occurred loading the deobfuscation map data", ioe);
+            ioe.printStackTrace();
         }
         methodNameMaps = Maps.newHashMapWithExpectedSize(rawMethodMaps.size());
         fieldNameMaps = Maps.newHashMapWithExpectedSize(rawFieldMaps.size());
@@ -147,7 +137,7 @@ public class OptifineDevRemapper extends Remapper {
                 fieldDescriptions.put(owner, resMap);
                 return resMap.get(name);
             } catch (IOException e) {
-                FMLLog.log.error("A critical exception occurred reading a class file {}", owner, e);
+                e.printStackTrace();
             }
             return null;
         }
@@ -277,10 +267,6 @@ public class OptifineDevRemapper extends Remapper {
             if (!fieldNameMaps.containsKey(className)) {
                 negativeCacheFields.add(className);
             }
-
-            if (DUMP_FIELD_MAPS) {
-                FMLLog.log.trace("Field map for {} : {}", className, fieldNameMaps.get(className));
-            }
         }
         return fieldNameMaps.get(className);
     }
@@ -291,9 +277,6 @@ public class OptifineDevRemapper extends Remapper {
             findAndMergeSuperMaps(map(className));
             if (!methodNameMaps.containsKey(className)) {
                 negativeCacheMethods.add(className);
-            }
-            if (DUMP_METHOD_MAPS) {
-                FMLLog.log.trace("Method map for {} : {}", className, methodNameMaps.get(className));
             }
 
         }
@@ -315,7 +298,7 @@ public class OptifineDevRemapper extends Remapper {
             String[] notchInterfaces = Arrays.asList(interfaces).stream().map(OptifineDevRemapper.NOTCH_MCP::notchFromMcpOrDefault).toArray(String[]::new);
             mergeSuperMaps(notchName, notchSuperName, notchInterfaces);
         } catch (IOException e) {
-            FMLLog.log.error("Error getting patched resource:", e);
+            e.printStackTrace();
         }
     }
 

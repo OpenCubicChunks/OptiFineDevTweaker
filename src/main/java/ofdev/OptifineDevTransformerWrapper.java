@@ -10,11 +10,8 @@ import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.RETURN;
 
 import com.google.common.io.ByteStreams;
-import net.minecraft.block.state.IBlockState;
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.Launch;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -22,16 +19,12 @@ import org.objectweb.asm.commons.RemappingClassAdapter;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.JarURLConnection;
 import java.net.URISyntaxException;
