@@ -123,7 +123,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             if (name.equals("Reflector")) {
                 addReflectorFix(ofTransformedDeobfNode);
             }
-            ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+            ClassWriter classWriter = new ClassWriter(0);
             ofTransformedDeobfNode.accept(classWriter);
             return classWriter.toByteArray();
         } catch (IOException e) {
@@ -259,7 +259,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         ClassReader classReader = new ClassReader(code);
         ClassNode transformedNode = new ClassNode(Opcodes.ASM5);
         RemappingClassAdapter remapAdapter = new OptifineDevAdapter(transformedNode);
-        classReader.accept(remapAdapter, ClassReader.SKIP_FRAMES);
+        classReader.accept(remapAdapter, ClassReader.EXPAND_FRAMES);
         return transformedNode;
     }
 
