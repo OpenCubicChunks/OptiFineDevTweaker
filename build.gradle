@@ -16,7 +16,7 @@ apply plugin: 'net.minecraftforge.gradle.forge'
 
 version = "1.0"
 group = "ofdev" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "aa_OptiFineDevTweaker"
+archivesBaseName = "aa_do_not_rename_OptiFineDevTweaker"
 
 sourceCompatibility = targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
 compileJava {
