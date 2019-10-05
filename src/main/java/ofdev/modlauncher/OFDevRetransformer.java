@@ -1,9 +1,8 @@
-package ofdev;
+package ofdev.modlauncher;
 
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.INameMappingService;
 import cpw.mods.modlauncher.api.ITransformer;
-import cpw.mods.modlauncher.api.ITransformerActivity;
 import cpw.mods.modlauncher.api.ITransformerVotingContext;
 import cpw.mods.modlauncher.api.TransformerVoteResult;
 import mcp.MethodsReturnNonnullByDefault;
@@ -35,14 +34,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public class OFDevRetransformer implements ITransformer<ClassNode> {
 
     private final Set<Target> targets;
-    private final Set<String> ofTargets;
     private final OfDevRemapper remapper;
 
-    OFDevRetransformer(IEnvironment env,
-            List<Target> targets) {
-        this.targets = new HashSet<>(targets);
-        this.ofTargets = targets.stream().map(Target::getClassName).collect(Collectors.toSet());
-        this.targets.addAll(findOptiFineClasses(env));
+    OFDevRetransformer(IEnvironment env) {
+        this.targets = new HashSet<>(findOptiFineClasses(env));
         Optional<BiFunction<INameMappingService.Domain, String, String>> srgtomcp = env.findNameMapping("srg");
         if (!srgtomcp.isPresent()) {
             throw new IllegalStateException("No srgtomcp mappings found! Are you in dev environment?");
@@ -95,12 +90,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
     }
 
     @Nonnull @Override public TransformerVoteResult castVote(ITransformerVotingContext context) {
-        if (!ofTargets.contains(context.getClassName())) {
-            return TransformerVoteResult.YES;
-        }
-        boolean optifineRan = context.getAuditActivities().stream().anyMatch(activity ->
-                activity.getType() == ITransformerActivity.Type.TRANSFORMER && activity.getContext()[0].equals("OptiFine"));
-        return optifineRan ? TransformerVoteResult.YES : TransformerVoteResult.DEFER;
+        return TransformerVoteResult.YES;
     }
 
     @Nonnull @Override public Set<Target> targets() {

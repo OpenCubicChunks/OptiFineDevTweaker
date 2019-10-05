@@ -1,4 +1,4 @@
-package ofdev;
+package ofdev.modlauncher;
 
 import cpw.mods.modlauncher.api.INameMappingService;
 import org.objectweb.asm.commons.Remapper;
