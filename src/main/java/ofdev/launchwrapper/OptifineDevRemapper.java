@@ -1,45 +1,50 @@
-package ofdev;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+package ofdev.launchwrapper;
 
 import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
-import net.minecraftforge.fml.common.patcher.ClassPatchManager;
-
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableBiMap.Builder;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.io.Files;
+import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
 // this class is a modified version of FMLDeobfuscatingRemapper
 public class OptifineDevRemapper extends Remapper {
 
-    public static final OptifineDevRemapper NOTCH_MCP =
-            new OptifineDevRemapper(System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp"));
 
-    private BiMap<String, String> classNameBiMap;
+    private static final MethodHandle getPatchedResource;
+    public static final OptifineDevRemapper NOTCH_MCP;
+    static {
+        try {
+            Class<?> cpm = Class.forName("net.minecraftforge.fml.common.patcher.ClassPatchManager");
+            Object classPathManager = cpm.getField("INSTANCE").get(null);
+
+            Method m = cpm.getMethod("getPatchedResource", String.class, String.class, LaunchClassLoader.class);
+            getPatchedResource = MethodHandles.lookup().unreflect(m).bindTo(classPathManager);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+        NOTCH_MCP = new OptifineDevRemapper(System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp"));
+    }
+
+
+    private Map<String, String> classNameMap, classNameMapInverse;
 
     private Map<String, Map<String, String>> rawFieldMaps;
     private Map<String, Map<String, String>> rawMethodMaps;
@@ -50,7 +55,8 @@ public class OptifineDevRemapper extends Remapper {
     private LaunchClassLoader classLoader;
 
     private OptifineDevRemapper(String property) {
-        classNameBiMap = ImmutableBiMap.of();
+        classNameMap = new HashMap<>();
+        classNameMapInverse = new HashMap<>();
         setup(Launch.classLoader, property);
     }
 
@@ -59,28 +65,32 @@ public class OptifineDevRemapper extends Remapper {
         try {
             List<String> srgList;
 
-            srgList = Files.readLines(new File(gradleStartProp), StandardCharsets.UTF_8);
-            rawMethodMaps = Maps.newHashMap();
-            rawFieldMaps = Maps.newHashMap();
-            Builder<String, String> builder = ImmutableBiMap.builder();
-            Splitter splitter = Splitter.on(CharMatcher.anyOf(": ")).omitEmptyStrings().trimResults();
+            srgList = Files.readAllLines(Paths.get(gradleStartProp), StandardCharsets.UTF_8);
+            rawMethodMaps = new HashMap<>();
+            rawFieldMaps = new HashMap<>();
+            Map<String, String> classMap = new HashMap<>();
+            Map<String, String> classMapInverse = new HashMap<>();
             for (String line : srgList) {
-                String[] parts = Iterables.toArray(splitter.split(line), String.class);
+                String[] parts = line.split("[:\\s]+");
+                for (int i = 0; i < parts.length; i++) {
+                    parts[i] = parts[i].trim();
+                }
                 String typ = parts[0];
                 if ("CL".equals(typ)) {
-                    parseClass(builder, parts);
+                    parseClass(classMap, classMapInverse, parts);
                 } else if ("MD".equals(typ)) {
                     parseMethod(parts);
                 } else if ("FD".equals(typ)) {
                     parseField(parts);
                 }
             }
-            classNameBiMap = builder.build();
+            classNameMap = classMap;
+            classNameMapInverse = classMapInverse;
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
-        methodNameMaps = Maps.newHashMapWithExpectedSize(rawMethodMaps.size());
-        fieldNameMaps = Maps.newHashMapWithExpectedSize(rawFieldMaps.size());
+        methodNameMaps = new HashMap<>();
+        fieldNameMaps = new HashMap<>();
     }
 
     public boolean isRemappedClass(String className) {
@@ -96,7 +106,7 @@ public class OptifineDevRemapper extends Remapper {
         int lastNew = newSrg.lastIndexOf('/');
         String newName = newSrg.substring(lastNew + 1);
         if (!rawFieldMaps.containsKey(cl)) {
-            rawFieldMaps.put(cl, Maps.<String, String>newHashMap());
+            rawFieldMaps.put(cl, new HashMap<>());
         }
         String fieldType = getFieldType(cl, oldName);
         // We might be in mcp named land, where in fact the name is "new"
@@ -110,11 +120,11 @@ public class OptifineDevRemapper extends Remapper {
     /*
      * Cache the field descriptions for classes so we don't repeatedly reload the same data again and again
      */
-    private final Map<String, Map<String, String>> fieldDescriptions = Maps.newHashMap();
+    private final Map<String, Map<String, String>> fieldDescriptions = new HashMap<>();
 
     // Cache null values so we don't waste time trying to recompute classes with no field or method maps
-    private Set<String> negativeCacheMethods = Sets.newHashSet();
-    private Set<String> negativeCacheFields = Sets.newHashSet();
+    private Set<String> negativeCacheMethods = new HashSet<>();
+    private Set<String> negativeCacheFields = new HashSet<>();
 
     @Nullable
     private String getFieldType(String owner, String name) {
@@ -123,14 +133,14 @@ public class OptifineDevRemapper extends Remapper {
         }
         synchronized (fieldDescriptions) {
             try {
-                byte[] classBytes = ClassPatchManager.INSTANCE.getPatchedResource(owner, map(owner).replace('/', '.'), classLoader);
+                byte[] classBytes = (byte[]) getPatchedResource.invoke(owner, map(owner).replace('/', '.'), classLoader);
                 if (classBytes == null) {
                     return null;
                 }
                 ClassReader cr = new ClassReader(classBytes);
                 ClassNode classNode = new ClassNode();
                 cr.accept(classNode, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-                Map<String, String> resMap = Maps.newHashMap();
+                Map<String, String> resMap = new HashMap<>();
                 for (FieldNode fieldNode : classNode.fields) {
                     resMap.put(fieldNode.name, fieldNode.desc);
                 }
@@ -138,13 +148,16 @@ public class OptifineDevRemapper extends Remapper {
                 return resMap.get(name);
             } catch (IOException e) {
                 e.printStackTrace();
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
             }
             return null;
         }
     }
 
-    private void parseClass(Builder<String, String> builder, String[] parts) {
-        builder.put(parts[1], parts[2]);
+    private void parseClass(Map<String, String> classMap, Map<String, String> classMapInverse, String[] parts) {
+        classMap.put(parts[1], parts[2]);
+        classMapInverse.put(parts[2], parts[1]);
     }
 
     private void parseMethod(String[] parts) {
@@ -157,7 +170,7 @@ public class OptifineDevRemapper extends Remapper {
         int lastNew = newSrg.lastIndexOf('/');
         String newName = newSrg.substring(lastNew + 1);
         if (!rawMethodMaps.containsKey(cl)) {
-            rawMethodMaps.put(cl, Maps.<String, String>newHashMap());
+            rawMethodMaps.put(cl, new HashMap<>());
         }
         rawMethodMaps.get(cl).put(oldName + sig, newName);
     }
@@ -190,7 +203,7 @@ public class OptifineDevRemapper extends Remapper {
     }
 
     String mapFieldName(String owner, String name, @Nullable String desc, boolean raw) {
-        if (classNameBiMap == null || classNameBiMap.isEmpty()) {
+        if (classNameMap == null || classNameMap.isEmpty()) {
             return name;
         }
         Map<String, String> fieldMap = getFieldMap(owner, raw);
@@ -200,11 +213,11 @@ public class OptifineDevRemapper extends Remapper {
 
     @Override
     public String map(String typeName) {
-        if (classNameBiMap == null || classNameBiMap.isEmpty()) {
+        if (classNameMap == null || classNameMap.isEmpty()) {
             return typeName;
         }
-        if (classNameBiMap.containsKey(typeName)) {
-            return classNameBiMap.get(typeName);
+        if (classNameMap.containsKey(typeName)) {
+            return classNameMap.get(typeName);
         }
         int dollarIdx = typeName.lastIndexOf('$');
         if (dollarIdx > -1) {
@@ -214,12 +227,12 @@ public class OptifineDevRemapper extends Remapper {
     }
 
     public String unmap(String typeName) {
-        if (classNameBiMap == null || classNameBiMap.isEmpty()) {
+        if (classNameMap == null || classNameMap.isEmpty()) {
             return typeName;
         }
 
-        if (classNameBiMap.containsValue(typeName)) {
-            return classNameBiMap.inverse().get(typeName);
+        if (classNameMap.containsValue(typeName)) {
+            return classNameMapInverse.get(typeName);
         }
         int dollarIdx = typeName.lastIndexOf('$');
         if (dollarIdx > -1) {
@@ -231,7 +244,7 @@ public class OptifineDevRemapper extends Remapper {
 
     @Override
     public String mapMethodName(String owner, String name, String desc) {
-        if (classNameBiMap == null || classNameBiMap.isEmpty()) {
+        if (classNameMap == null || classNameMap.isEmpty()) {
             return name;
         }
         Map<String, String> methodMap = getMethodMap(owner);
@@ -251,7 +264,7 @@ public class OptifineDevRemapper extends Remapper {
 
     private Map<String, String> getRawFieldMap(String className) {
         if (!rawFieldMaps.containsKey(className)) {
-            rawFieldMaps.put(className, Maps.<String, String>newHashMap());
+            rawFieldMaps.put(className, new HashMap<>());
         }
         return rawFieldMaps.get(className);
     }
@@ -287,7 +300,7 @@ public class OptifineDevRemapper extends Remapper {
         try {
             String superName = null;
             String[] interfaces = new String[0];
-            byte[] classBytes = ClassPatchManager.INSTANCE.getPatchedResource(name, map(name), classLoader);
+            byte[] classBytes = (byte[]) getPatchedResource.invoke(name, map(name), classLoader);
             if (classBytes != null) {
                 ClassReader cr = new ClassReader(classBytes);
                 superName = cr.getSuperName();
@@ -299,20 +312,24 @@ public class OptifineDevRemapper extends Remapper {
             mergeSuperMaps(notchName, notchSuperName, notchInterfaces);
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
     }
 
     public void mergeSuperMaps(String name, @Nullable String superName, String[] interfaces) {
         //        System.out.printf("Computing super maps for %s: %s %s\n", name, superName, Arrays.asList(interfaces));
-        if (classNameBiMap == null || classNameBiMap.isEmpty()) {
+        if (classNameMap == null || classNameMap.isEmpty()) {
             return;
         }
         // Skip Object
-        if (Strings.isNullOrEmpty(superName)) {
+        if (superName == null || superName.isEmpty()) {
             return;
         }
 
-        List<String> allParents = ImmutableList.<String>builder().add(superName).addAll(Arrays.asList(interfaces)).build();
+        List<String> allParents = new ArrayList<>();
+        allParents.add(superName);
+        allParents.addAll(Arrays.asList(interfaces));
         // generate maps for all parent objects
         for (String parentThing : allParents) {
             if (!fieldNameMaps.containsKey(parentThing)) {
@@ -320,8 +337,8 @@ public class OptifineDevRemapper extends Remapper {
                 findAndMergeSuperMaps(map(parentThing));
             }
         }
-        Map<String, String> methodMap = Maps.newHashMap();
-        Map<String, String> fieldMap = Maps.newHashMap();
+        Map<String, String> methodMap = new HashMap<>();
+        Map<String, String> fieldMap = new HashMap<>();
         for (String parentThing : allParents) {
             if (methodNameMaps.containsKey(parentThing)) {
                 methodMap.putAll(methodNameMaps.get(parentThing));
@@ -336,21 +353,21 @@ public class OptifineDevRemapper extends Remapper {
         if (rawFieldMaps.containsKey(name)) {
             fieldMap.putAll(rawFieldMaps.get(name));
         }
-        methodNameMaps.put(name, ImmutableMap.copyOf(methodMap));
-        fieldNameMaps.put(name, ImmutableMap.copyOf(fieldMap));
+        methodNameMaps.put(name, new HashMap<>(methodMap));
+        fieldNameMaps.put(name, new HashMap<>(fieldMap));
         //        System.out.printf("Maps: %s %s\n", name, methodMap);
     }
 
     public Set<String> getObfedClasses() {
-        return ImmutableSet.copyOf(classNameBiMap.keySet());
+        return new HashSet<>(classNameMap.keySet());
     }
 
     public String notchFromMcp(String className) {
-        return classNameBiMap.inverse().get(className);
+        return classNameMapInverse.get(className);
     }
 
     public String notchFromMcpOrDefault(String className) {
-        return classNameBiMap.inverse().getOrDefault(className, className);
+        return classNameMapInverse.getOrDefault(className, className);
     }
 
     @Nullable
@@ -359,7 +376,7 @@ public class OptifineDevRemapper extends Remapper {
         if (oldType.equals(newType)) {
             return fType;
         }
-        Map<String, String> newClassMap = fieldDescriptions.computeIfAbsent(newType, k -> Maps.newHashMap());
+        Map<String, String> newClassMap = fieldDescriptions.computeIfAbsent(newType, k -> new HashMap<>());
         newClassMap.put(newName, fType);
         return fType;
     }

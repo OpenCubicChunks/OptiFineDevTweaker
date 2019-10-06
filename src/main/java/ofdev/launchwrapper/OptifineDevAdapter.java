@@ -1,4 +1,4 @@
-package ofdev;
+package ofdev.launchwrapper;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;

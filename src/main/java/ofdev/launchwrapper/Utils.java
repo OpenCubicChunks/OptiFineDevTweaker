@@ -1,7 +1,6 @@
-package ofdev;
+package ofdev.launchwrapper;
 
 import net.minecraft.launchwrapper.Launch;
-import net.minecraftforge.common.ForgeVersion;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -17,7 +16,7 @@ public class Utils {
         // because javac authors decided to do an optimization for this one specialcase thing of compiletime expressions
         // we need to reflectively access a *public static final* field just so that it doesn't get inlined at compiletime
         // and so this can be MC-version independent
-        return getFieldValue(ForgeVersion.class, null, "mcVersion");
+        return getFieldValue(loadClassLW("net.minecraftforge.common.ForgeVersion"), null, "mcVersion");
     }
 
     // Note: all of these reflection methods are expected to be very slow, and not used too frequently

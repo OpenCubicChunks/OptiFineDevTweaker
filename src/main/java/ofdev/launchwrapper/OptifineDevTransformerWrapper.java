@@ -1,4 +1,4 @@
-package ofdev;
+package ofdev.launchwrapper;
 
 import static java.lang.reflect.Modifier.isPrivate;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
@@ -9,7 +9,6 @@ import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.RETURN;
 
-import com.google.common.io.ByteStreams;
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.Launch;
 import org.objectweb.asm.ClassReader;
@@ -29,13 +28,16 @@ import java.lang.reflect.Modifier;
 import java.net.JarURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
@@ -47,11 +49,11 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
                     Utils.mcVersion() + "/minecraft-" + Utils.mcVersion() + ".jar");
 
 
-    private static final JarFile mcJar;
+    private static final FileSystem mcJar;
 
     static {
         try {
-            mcJar = new JarFile(MC_JAR);
+            mcJar = FileSystems.newFileSystem(Paths.get(MC_JAR), Launch.classLoader);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -275,9 +277,9 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     private byte[] extractVanillaBytecode(byte[] basicClass, String notchName) throws IOException {
         byte[] vanillaCode = basicClass;
         if (notchName != null) {
-            ZipEntry entry = mcJar.getEntry(notchName.replace(".", "/") + ".class");
-            if (entry != null) {
-                vanillaCode = ByteStreams.toByteArray(mcJar.getInputStream(entry));
+            Path classPath = mcJar.getPath(notchName.replace(".", "/") + ".class");
+            if (Files.exists(classPath)) {
+                return Files.readAllBytes(classPath);
             }
         }
         return vanillaCode;

@@ -1,4 +1,4 @@
-package ofdev;
+package ofdev.launchwrapper;
 
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.ITweaker;
@@ -19,7 +19,7 @@ public class OptifineDevTweakerWrapper implements ITweaker {
     }
 
     @Override public void injectIntoClassLoader(LaunchClassLoader classLoader) {
-        classLoader.registerTransformer("ofdev.OptifineDevTransformerWrapper");
+        classLoader.registerTransformer("ofdev.launchwrapper.OptifineDevTransformerWrapper");
     }
 
     @Override public String getLaunchTarget() {
