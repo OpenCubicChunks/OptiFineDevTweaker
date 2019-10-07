@@ -12,7 +12,7 @@ buildscript {
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'java'
 
-version = "2.1"
+version = "2.2"
 group = "ofdev" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "aa_do_not_rename_OptiFineDevTweaker"
 
@@ -44,32 +44,21 @@ dependencies {
 task shadowJarLW(type: ShadowJar) {
     configurations = [project.configurations.shadow]
     from sourceSets.main.output
-    exclude('ofdev/modlauncher/**')
+    exclude('ofdev/modlauncher/**', 'ofdev/common/**') // can't use include because that seems to break shading here
     relocate('org.objectweb', 'ofdev.launchwrapper.org.objectweb')
     classifier = "launchwrapper"
-    manifest {
-        attributes([
-                "TweakClass": "ofdev.launchwrapper.OptifineDevTweakerWrapper",
-                "TweakOrder": "-10000",
-        ])
-    }
 }
 
 task shadowJarML(type: ShadowJar) {
     from sourceSets.main.output
     include('ofdev/modlauncher/**')
     classifier = "modlauncher"
-    manifest {
-        attributes([
-                "Specification-Title": "ofdevtweaker",
-                "Specification-Vendor": "ofdevtweaker",
-                "Specification-Version": "1", // We are version 1 of ourselves
-                "Implementation-Title": project.name,
-                "Implementation-Version": "${version}",
-                "Implementation-Vendor" :"ofdevtweaker",
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-        ])
-    }
+}
+
+task shadowJarCommon(type: ShadowJar) {
+    from sourceSets.main.output
+    include('ofdev/common/**')
+    classifier = "common"
 }
 
 shadowJar {
@@ -77,6 +66,9 @@ shadowJar {
         include '*'
     }
     from (shadowJarML.archivePath.absolutePath) {
+        include '*'
+    }
+    from (shadowJarCommon.archivePath.absolutePath) {
         include '*'
     }
     classifier = "all"
@@ -95,7 +87,7 @@ shadowJar {
         ])
     }
 }
-shadowJar.dependsOn(shadowJarML, shadowJarLW)
+shadowJar.dependsOn(shadowJarML, shadowJarLW, shadowJarCommon)
 build.dependsOn(shadowJar)
 
 jar {

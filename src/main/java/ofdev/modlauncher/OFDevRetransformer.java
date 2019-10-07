@@ -5,6 +5,10 @@ import cpw.mods.modlauncher.api.INameMappingService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.ITransformerVotingContext;
 import cpw.mods.modlauncher.api.TransformerVoteResult;
+import ofdev.common.Utils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.tree.ClassNode;
 
@@ -29,6 +33,7 @@ import javax.annotation.Nonnull;
 
 public class OFDevRetransformer implements ITransformer<ClassNode> {
 
+    private static final Logger LOGGER = LogManager.getLogger();
     private final Set<Target> targets;
     private final OfDevRemapper remapper;
 
@@ -64,7 +69,9 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                                 Path relative = root.relativize(file);
                                 String name = relative.toString();
                                 name = name.substring(0, name.length() - ".class".length());
-                                if (!name.startsWith("optifine/")) {
+                                // optifine package is transformers etc...
+                                // net/minecraftforge is forge dummy classes for loading without forge
+                                if (!name.startsWith("optifine/") && !name.startsWith("net/minecraftforge")) {
                                     newTargets.add(Target.targetClass(name));
                                 }
                             }
@@ -82,6 +89,13 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         ClassNode output = new ClassNode();
         ClassRemapper classRemapper = new ClassRemapper(output, remapper);
         input.accept(classRemapper);
+        try {
+            ClassWriter cw = new ClassWriter(0); // don't compute frames/maxs, this code is only for decompiler and IDE
+            output.accept(cw);
+            Utils.dumpBytecode(OFDevTransformationService.CLASS_DUMP_LOCATION, output.name, cw.toByteArray());
+        } catch (Throwable t) {
+            LOGGER.catching(t); // in case there is anything broken about the code, it's better for it to fail in modlauncher than here
+        }
         return output;
     }
 

@@ -11,6 +11,7 @@ import static org.objectweb.asm.Opcodes.RETURN;
 
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.Launch;
+import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -33,6 +34,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -46,7 +48,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     // TODO: will it work on windows?
     private static final String MC_JAR = System.getProperty("ofdev.mcjar",
             System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/" +
-                    Utils.mcVersion() + "/minecraft-" + Utils.mcVersion() + ".jar");
+                    UtilsLW.mcVersion() + "/minecraft-" + UtilsLW.mcVersion() + ".jar");
 
 
     private static final FileSystem mcJar;
@@ -74,15 +76,15 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
 
             JarURLConnection connection = (JarURLConnection) ofUrl.openConnection();
             ZipFile file = new ZipFile(new File(connection.getJarFileURL().toURI()));
-            Utils.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
+            UtilsLW.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
 
             Class<?> ofPatcher = Launch.classLoader.findClass("optifine.Patcher");
 
-            Object patchMapVal = Utils.invokeMethod(ofPatcher, null, "getConfigurationMap", file);
-            Object patternsVal = Utils.invokeMethod(ofPatcher, null, "getConfigurationPatterns", patchMapVal);
+            Object patchMapVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationMap", file);
+            Object patternsVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationPatterns", patchMapVal);
 
-            Utils.setFieldValue(ofTransformerClass, "patchMap", ofTransformer, patchMapVal);
-            Utils.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
+            UtilsLW.setFieldValue(ofTransformerClass, "patchMap", ofTransformer, patchMapVal);
+            UtilsLW.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
             System.out.println("Ignore the above, OptiFine should run anyway");
 
             Launch.classLoader.addURL(new File(MC_JAR).toURI().toURL());
@@ -111,7 +113,9 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             String notchName = remapper.notchFromMcp(classJvmName);
             byte[] vanillaCode = extractVanillaBytecode(basicClass, notchName);
 
-            byte[] ofTransformedCode = getOptifineTransformedBytecode(name, basicClass, notchName, vanillaCode);
+            Mutable<Boolean> isModified = new Mutable(false);
+
+            byte[] ofTransformedCode = getOptifineTransformedBytecode(name, basicClass, notchName, vanillaCode, isModified);
             // deobfuscate OptiFine transformed code to MCP names
             // this attempts to transform all the code but it shouldn't be an issue
             ClassNode ofTransformedDeobfNode = toDeobfClassNode(ofTransformedCode);
@@ -127,7 +131,12 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             }
             ClassWriter classWriter = new ClassWriter(0);
             ofTransformedDeobfNode.accept(classWriter);
-            return classWriter.toByteArray();
+            byte[] output = classWriter.toByteArray();
+
+            if (isModified.get() || (!transformedName.contains(".") || transformedName.startsWith("optifine") || transformedName.startsWith("net.optifine"))) {
+                Utils.dumpBytecode(OptifineDevTweakerWrapper.CLASS_DUMP_LOCATION, transformedName, output);
+            }
+            return output;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -265,11 +274,13 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         return transformedNode;
     }
 
-    private byte[] getOptifineTransformedBytecode(String name, byte[] basicClass, String notchName, byte[] vanillaCode) {
+    private byte[] getOptifineTransformedBytecode(String name, byte[] basicClass, String notchName, byte[] vanillaCode, Mutable<Boolean> isModified) {
         byte[] ofTransformedCode = name.startsWith("optifine") ? vanillaCode : ofTransformer.transform(notchName, notchName, vanillaCode);
 
         if (ofTransformedCode == vanillaCode) {
             ofTransformedCode = basicClass;
+        } else {
+            isModified.set(true);
         }
         return ofTransformedCode;
     }
@@ -410,6 +421,22 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
                 }
                 throw new Error();
             }
+        }
+    }
+
+    private static class Mutable<T> {
+        T value;
+
+        public Mutable(T value) {
+            this.value = value;
+        }
+
+        public T get() {
+            return value;
+        }
+
+        public void set(T value) {
+            this.value = value;
         }
     }
 }

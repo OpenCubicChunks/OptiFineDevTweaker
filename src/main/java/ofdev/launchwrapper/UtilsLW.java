@@ -10,7 +10,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class Utils {
+public class UtilsLW {
 
     public static final String mcVersion() {
         // because javac authors decided to do an optimization for this one specialcase thing of compiletime expressions
@@ -165,28 +165,28 @@ public class Utils {
     // invoked from ASMed optifine code
     public static void fixReflector() {
         try {
-            Class<?> reflector = Utils.loadClassLW("Reflector");
+            Class<?> reflector = UtilsLW.loadClassLW("Reflector");
 
-            Object ForgeBlock = Utils.getFieldValue(reflector, null, "ForgeBlock");
-            Object ForgeBlock_getLightOpacity = Utils.getFieldValue(reflector, null, "ForgeBlock_getLightOpacity");
-            Object ForgeBlock_getLightValue = Utils.getFieldValue(reflector, null, "ForgeBlock_getLightValue");
+            Object ForgeBlock = UtilsLW.getFieldValue(reflector, null, "ForgeBlock");
+            Object ForgeBlock_getLightOpacity = UtilsLW.getFieldValue(reflector, null, "ForgeBlock_getLightOpacity");
+            Object ForgeBlock_getLightValue = UtilsLW.getFieldValue(reflector, null, "ForgeBlock_getLightValue");
 
             Class<?> ReflectorMethod = ForgeBlock_getLightOpacity.getClass();
-            Class IBlockState = Utils.loadClassLW("net.minecraft.block.state.IBlockState");
-            Class IBlockAccess = Utils.loadClassLW("net.minecraft.world.IBlockAccess");
-            Class BlockPos = Utils.loadClassLW("net.minecraft.util.math.BlockPos");
+            Class IBlockState = UtilsLW.loadClassLW("net.minecraft.block.state.IBlockState");
+            Class IBlockAccess = UtilsLW.loadClassLW("net.minecraft.world.IBlockAccess");
+            Class BlockPos = UtilsLW.loadClassLW("net.minecraft.util.math.BlockPos");
 
-            if (Utils.invokeMethod(ReflectorMethod, ForgeBlock_getLightOpacity, "getTargetMethod") == null) {
-                Object new_ForgeBlock_getLightOpacity = Utils.construct(ReflectorMethod, ForgeBlock, "getLightOpacity", new Class[]{
+            if (UtilsLW.invokeMethod(ReflectorMethod, ForgeBlock_getLightOpacity, "getTargetMethod") == null) {
+                Object new_ForgeBlock_getLightOpacity = UtilsLW.construct(ReflectorMethod, ForgeBlock, "getLightOpacity", new Class[]{
                         IBlockState, IBlockAccess, BlockPos
                 });
-                Utils.setFieldValue(reflector, "ForgeBlock_getLightOpacity", null, new_ForgeBlock_getLightOpacity);
+                UtilsLW.setFieldValue(reflector, "ForgeBlock_getLightOpacity", null, new_ForgeBlock_getLightOpacity);
             }
-            if (Utils.invokeMethod(ReflectorMethod, ForgeBlock_getLightValue, "getTargetMethod") == null) {
-                Object new_ForgeBlock_getLightOpacity = Utils.construct(ReflectorMethod, ForgeBlock, "getLightValue", new Class[]{
+            if (UtilsLW.invokeMethod(ReflectorMethod, ForgeBlock_getLightValue, "getTargetMethod") == null) {
+                Object new_ForgeBlock_getLightOpacity = UtilsLW.construct(ReflectorMethod, ForgeBlock, "getLightValue", new Class[]{
                         IBlockState, IBlockAccess, BlockPos
                 });
-                Utils.setFieldValue(reflector, "ForgeBlock_getLightValue", null, new_ForgeBlock_getLightOpacity);
+                UtilsLW.setFieldValue(reflector, "ForgeBlock_getLightValue", null, new_ForgeBlock_getLightOpacity);
             }
         } catch (Throwable t) {
             t.printStackTrace();

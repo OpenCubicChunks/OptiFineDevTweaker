@@ -14,6 +14,7 @@ import cpw.mods.modlauncher.api.INameMappingService;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.IncompatibleEnvironmentException;
+import ofdev.common.Utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassWriter;
@@ -24,6 +25,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
@@ -52,6 +54,7 @@ public class OFDevTransformationService implements ITransformationService {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static Path mcJar;
+    public static Path CLASS_DUMP_LOCATION;
 
     private static Path findObfMcJar(IEnvironment env) {
         String requestedJar = System.getProperty("ofdev.mcjar");
@@ -79,6 +82,13 @@ public class OFDevTransformationService implements ITransformationService {
 
     @Override public void initialize(IEnvironment environment) {
         mcJar = findObfMcJar(environment);
+        try {
+            Path classDump = Paths.get(".").toAbsolutePath().normalize().resolve(".optifineDev.classes");
+            Utils.rm(classDump);
+            CLASS_DUMP_LOCATION = classDump;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override public void beginScanning(IEnvironment environment) {
@@ -182,6 +192,14 @@ public class OFDevTransformationService implements ITransformationService {
         ClassRemapper classRemapper = new ClassRemapper(output, remapper);
         transformed.accept(classRemapper);
         fixMemberAccess.accept(original, output);
+
+        try {
+            ClassWriter cw = new ClassWriter(0); // don't compute frames/maxs, this code is only for decompiler and IDE
+            output.accept(cw);
+            Utils.dumpBytecode(CLASS_DUMP_LOCATION, output.name, cw.toByteArray());
+        } catch (Throwable t) {
+            LOGGER.catching(t); // in case there is anything broken about the code, it's better for it to fail in modlauncher than here
+        }
         return output;
     }
 
