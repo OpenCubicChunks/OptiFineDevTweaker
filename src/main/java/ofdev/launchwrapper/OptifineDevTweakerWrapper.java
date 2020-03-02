@@ -22,8 +22,13 @@ import java.util.Set;
 public class OptifineDevTweakerWrapper implements ITweaker {
 
     // this requires the jar to be loaded by FML before OptiFine, the easiest way to do it is to name it aa_SomeJar
-    public static final Class<?> OF_TRANSFORMER_LAUNCH_CLASSLOADER = UtilsLW.loadClassLW("optifine.OptiFineClassTransformer");
+    public static final Class<?> OF_TRANSFORMER_LAUNCH_CLASSLOADER;
     public static Path CLASS_DUMP_LOCATION;
+
+    static {
+        Launch.classLoader.addTransformerExclusion("optifine.");
+        OF_TRANSFORMER_LAUNCH_CLASSLOADER = UtilsLW.loadClassLW("optifine.OptiFineClassTransformer");
+    }
 
     @Override public void acceptOptions(List<String> args, File gameDir, File assetsDir, String profile) {
         try {
@@ -49,13 +54,6 @@ public class OptifineDevTweakerWrapper implements ITweaker {
         List<IClassTransformer> transformers =
                 UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformers");
         transformers.removeIf(t -> t.getClass().getName().equals("optifine.OptiFineClassTransformer"));
-        // also remove all the new exclusions
-        Set<String> classLoaderExceptions =
-                UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "classLoaderExceptions");
-        classLoaderExceptions.removeIf(t -> t.startsWith("optifine"));
-        Set<String> transformerExceptions =
-                UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformerExceptions");
-        transformerExceptions.removeIf(t -> t.startsWith("optifine"));
 
         // OptiFine tweaker constructed new instance of optifine transformer, so it changed it's instance field
         // now that OptiFine tweaker setup is done,fix it

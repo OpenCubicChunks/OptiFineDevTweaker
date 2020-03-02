@@ -11,6 +11,7 @@ import static org.objectweb.asm.Opcodes.RETURN;
 
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.Launch;
+import net.minecraft.launchwrapper.LaunchClassLoader;
 import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -68,14 +69,18 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
 
     {
         try {
+            // Make sure all of OptiFine classes are loaded by LauchClassLoader.
+            Set<String> classLoaderExceptions =
+                UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "classLoaderExceptions");
+            classLoaderExceptions.removeIf(t -> t.startsWith("optifine"));
+
             Class<? extends IClassTransformer> ofTransformerClass =
                     (Class<? extends IClassTransformer>) OptifineDevTweakerWrapper.OF_TRANSFORMER_LAUNCH_CLASSLOADER;
 
             ofTransformer = ofTransformerClass.newInstance();
             URL ofUrl = ofTransformer.getClass().getProtectionDomain().getCodeSource().getLocation();
 
-            JarURLConnection connection = (JarURLConnection) ofUrl.openConnection();
-            ZipFile file = new ZipFile(new File(connection.getJarFileURL().toURI()));
+            ZipFile file = new ZipFile(new File(ofUrl.toURI()));
             UtilsLW.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
 
             Class<?> ofPatcher = Launch.classLoader.findClass("optifine.Patcher");
