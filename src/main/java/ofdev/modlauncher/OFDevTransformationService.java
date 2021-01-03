@@ -132,8 +132,13 @@ public class OFDevTransformationService implements ITransformationService {
 
                     Class<?> newClass = makeNewOptiFineTransformer(oldTransformer.getClass().getClassLoader());
                     Constructor<?> constr = newClass.getConstructor(ZipFile.class);
-                    Object newTransformer = constr.newInstance(ofZipFile);
-
+                    Object newTransformer;
+                    try {
+                        newTransformer = constr.newInstance(ofZipFile);
+                    } catch (InvocationTargetException e) {
+                        constr = newClass.getConstructor(ZipFile.class, IEnvironment.class);
+                        newTransformer = constr.newInstance(ofZipFile, envIn);
+                    }
                     transformerField.set(null, newTransformer);
 
                     LOGGER.info("Finding OptiFine AccessFixer");
@@ -236,6 +241,28 @@ public class OFDevTransformationService implements ITransformationService {
 
         cw.visitSource("OFDevTransformationService.java", null);
 
+        {
+            mv = cw.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/util/zip/ZipFile;Lcpw/mods/modlauncher/api/IEnvironment;)V", null, null);
+            mv.visitCode();
+            Label l0 = new Label();
+            mv.visitLabel(l0);
+            mv.visitLineNumber(10, l0);
+            mv.visitVarInsn(ALOAD, 0);
+            mv.visitVarInsn(ALOAD, 1);
+            mv.visitVarInsn(ALOAD, 2);
+            mv.visitMethodInsn(INVOKESPECIAL, "optifine/OptiFineTransformer", "<init>", "(Ljava/util/zip/ZipFile;Lcpw/mods/modlauncher/api/IEnvironment;)V", false);
+            Label l1 = new Label();
+            mv.visitLabel(l1);
+            mv.visitLineNumber(11, l1);
+            mv.visitInsn(RETURN);
+            Label l2 = new Label();
+            mv.visitLabel(l2);
+            mv.visitLocalVariable("this", "L" + name + ";", null, l0, l2, 0);
+            mv.visitLocalVariable("ofZipFile", "Ljava/util/zip/ZipFile;", null, l0, l2, 1);
+            mv.visitLocalVariable("env", "Lcpw/mods/modlauncher/api/IEnvironment;", null, l0, l2, 2);
+            mv.visitMaxs(3, 3);
+            mv.visitEnd();
+        }
         {
             mv = cw.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/util/zip/ZipFile;)V", null, null);
             mv.visitCode();
