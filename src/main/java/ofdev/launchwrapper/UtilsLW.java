@@ -16,7 +16,13 @@ public class UtilsLW {
         // because javac authors decided to do an optimization for this one specialcase thing of compiletime expressions
         // we need to reflectively access a *public static final* field just so that it doesn't get inlined at compiletime
         // and so this can be MC-version independent
-        return getFieldValue(loadClassLW("net.minecraftforge.common.ForgeVersion"), null, "mcVersion");
+        try {
+            return getFieldValue(loadClassLW("net.minecraftforge.common.ForgeVersion"), null, "mcVersion");
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
+            // 1.7.10 doesn't have it in ForgeVersion
+            return getFieldValue(loadClassLW("cpw.mods.fml.common.Loader"), null, "MC_VERSION");
+        }
     }
 
     // Note: all of these reflection methods are expected to be very slow, and not used too frequently

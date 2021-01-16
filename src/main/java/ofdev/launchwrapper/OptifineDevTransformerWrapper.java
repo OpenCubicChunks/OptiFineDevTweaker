@@ -15,10 +15,14 @@ import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.commons.ClassRemapper;
+import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.commons.RemappingClassAdapter;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
@@ -129,6 +133,10 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             if (name.equals("Reflector")) {
                 addReflectorFix(ofTransformedDeobfNode);
             }
+            // 1.7.10 has srg named strings there
+            if (name.equals("EntityUtils")) {
+                remapEntityUtils(ofTransformedDeobfNode);
+            }
             ClassWriter classWriter = new ClassWriter(0);
             ofTransformedDeobfNode.accept(classWriter);
             byte[] output = classWriter.toByteArray();
@@ -142,6 +150,21 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         }
     }
 
+    private void remapEntityUtils(ClassNode ofTransformedDeobfNode) {
+        MethodNode clinit = ofTransformedDeobfNode.methods.stream().filter(m->m.name.equals("<clinit>")).findFirst()
+                .orElseThrow(()->new RuntimeException("No <clinit>"));
+        InsnList instructions = clinit.instructions;
+        instructions.iterator().forEachRemaining(node -> {
+            if (node instanceof LdcInsnNode) {
+                Object cst = ((LdcInsnNode) node).cst;
+                if (cst instanceof String) {
+                    cst = SrgMappings.getNameFromSrg((String) cst);
+                }
+                ((LdcInsnNode) node).cst = cst;
+            }
+        });
+    }
+
     private void addReflectorFix(ClassNode ofTransformedDeobfNode) {
         MethodNode clinit = ofTransformedDeobfNode.methods.stream().filter(m->m.name.equals("<clinit>")).findFirst()
                         .orElseThrow(()->new RuntimeException("No <clinit>"));
@@ -153,7 +176,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             }
         }
         clinit.instructions.insertBefore(_return, new MethodInsnNode(
-                Opcodes.INVOKESTATIC, "ofdev/Utils", "fixReflector", "()V", false));
+                Opcodes.INVOKESTATIC, "ofdev/launchwrapper/UtilsLW", "fixReflector", "()V", false));
     }
 
     private void applyAccessChanges(Set<AccessChange> accessChanges, ClassNode node) {
@@ -270,7 +293,21 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         ClassReader classReader = new ClassReader(code);
         ClassNode transformedNode = new ClassNode(Opcodes.ASM5);
         RemappingClassAdapter remapAdapter = new OptifineDevAdapter(transformedNode);
-        classReader.accept(remapAdapter, ClassReader.EXPAND_FRAMES);
+
+        // 1.7.10 has a name conflict with superclass and the field shadows parent class field
+        // but optifine user the parent class field to set it's own
+        Remapper videoSettingsFixer = new Remapper() {
+            @Override
+            public String mapFieldName(String owner, String name, String desc) {
+                if ((owner.startsWith("optifine") || owner.startsWith("shadersmod") || owner.equals("net/minecraft/client/gui/GuiVideoSettings") || owner.equals("bef")) && name.equals("fontRendererObj")) {
+                    return "fontRendererObj_OF";
+                }
+                return super.mapFieldName(owner, name, desc);
+            }
+        };
+        ClassRemapper finalRemapper = new ClassRemapper(remapAdapter, videoSettingsFixer);
+
+        classReader.accept(finalRemapper, ClassReader.EXPAND_FRAMES);
         return transformedNode;
     }
 
