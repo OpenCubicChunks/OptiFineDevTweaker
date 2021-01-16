@@ -43,8 +43,9 @@ dependencies {
 
 task shadowJarLW(type: ShadowJar) {
     configurations = [project.configurations.shadow]
-    from sourceSets.main.output
-    exclude('ofdev/modlauncher/**') // can't use include because that seems to break shading here
+    from(sourceSets.main.output) {
+        include('ofdev/launchwrapper/**', 'ofdev/common/**')
+    }
     relocate('org.objectweb', 'ofdev.launchwrapper.org.objectweb')
     classifier = "launchwrapper"
     manifest {
@@ -56,8 +57,9 @@ task shadowJarLW(type: ShadowJar) {
 }
 
 task shadowJarML(type: ShadowJar) {
+
     from sourceSets.main.output
-    include('ofdev/modlauncher/**')
+    include('ofdev/modlauncher/**', 'ofdev/common/**')
     classifier = "modlauncher"
     manifest {
         attributes([
@@ -72,11 +74,15 @@ task shadowJarML(type: ShadowJar) {
     }
 }
 
-shadowJar {
-    from sourceSets.main.output
-    configurations = [project.configurations.shadow]
+task shadowJarAll(type: ShadowJar) {
+    dependsOn(shadowJarLW)
+    from(sourceSets.main.output) {
+        include('ofdev/modlauncher/**')
+    }
+    from(shadowJarLW.archivePath.absolutePath) {
+        include('*')
+    }
     classifier = "all"
-    relocate('org.objectweb', 'ofdev.launchwrapper.org.objectweb')
     manifest {
         attributes([
                 "TweakClass": "ofdev.launchwrapper.OptifineDevTweakerWrapper",
@@ -91,7 +97,7 @@ shadowJar {
         ])
     }
 }
-build.dependsOn(shadowJar, shadowJarML, shadowJarLW)
+build.dependsOn(shadowJarAll, shadowJarML, shadowJarLW)
 
 jar {
     manifest {
