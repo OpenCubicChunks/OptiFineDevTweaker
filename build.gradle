@@ -2,7 +2,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 buildscript {
     repositories {
-        jcenter()
+        gradlePluginPortal()
         maven {url = "http://files.minecraftforge.net/maven"}
     }
     dependencies {
@@ -12,7 +12,7 @@ buildscript {
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'java'
 
-version = "2.5"
+version = "2.5.1"
 group = "ofdev" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "aa_do_not_rename_OptiFineDevTweaker"
 
@@ -22,11 +22,11 @@ compileJava {
 }
 
 repositories {
+    maven { url = 'https://files.minecraftforge.net/maven' }
+    mavenCentral()
     maven {
         url "https://libraries.minecraft.net/"
     }
-    maven { url = 'https://files.minecraftforge.net/maven' }
-    mavenCentral()
 }
 
 configurations {
@@ -37,7 +37,7 @@ dependencies {
     shadow("org.ow2.asm:asm-debug-all:5.2")
     compileOnly 'cpw.mods:modlauncher:4.0.+'
     compileOnly('net.minecraft:launchwrapper:1.12') {
-        transitive = false
+        transitive = true
     }
 }
 
@@ -78,6 +78,7 @@ task shadowJarAll(type: ShadowJar) {
     dependsOn(shadowJarLW)
     from(sourceSets.main.output) {
         include('ofdev/modlauncher/**')
+        include('META-INF/**')
     }
     from(shadowJarLW.archivePath.absolutePath) {
         include('*')

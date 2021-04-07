@@ -29,8 +29,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.annotation.Nonnull;
-
 public class OFDevRetransformer implements ITransformer<ClassNode> {
 
     private static final Logger LOGGER = LogManager.getLogger();
@@ -85,7 +83,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         return newTargets;
     }
 
-    @Nonnull @Override public ClassNode transform(ClassNode input, ITransformerVotingContext context) {
+    @Override public ClassNode transform(ClassNode input, ITransformerVotingContext context) {
         ClassNode output = new ClassNode();
         ClassRemapper classRemapper = new ClassRemapper(output, remapper);
         input.accept(classRemapper);
@@ -99,11 +97,11 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         return output;
     }
 
-    @Nonnull @Override public TransformerVoteResult castVote(ITransformerVotingContext context) {
+    @Override public TransformerVoteResult castVote(ITransformerVotingContext context) {
         return TransformerVoteResult.YES;
     }
 
-    @Nonnull @Override public Set<Target> targets() {
+    @Override public Set<Target> targets() {
         return targets;
     }
 

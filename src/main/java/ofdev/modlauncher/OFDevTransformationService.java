@@ -48,8 +48,6 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.zip.ZipFile;
 
-import javax.annotation.Nonnull;
-
 public class OFDevTransformationService implements ITransformationService {
 
     private static final Logger LOGGER = LogManager.getLogger();
@@ -76,7 +74,7 @@ public class OFDevTransformationService implements ITransformationService {
     private static IEnvironment env;
     private static BiConsumer<ClassNode, ClassNode> fixMemberAccess;
 
-    @Nonnull @Override public String name() {
+    @Override public String name() {
         return "OptiFineDevTransformationService";
     }
 
@@ -208,7 +206,7 @@ public class OFDevTransformationService implements ITransformationService {
         return output;
     }
 
-    @Nonnull @Override public List<ITransformer> transformers() {
+    @Override public List<ITransformer> transformers() {
         return Collections.singletonList(new OFDevRetransformer(env));
     }
 

@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.annotation.Nullable;
-
 // this class is a modified version of FMLDeobfuscatingRemapper
 public class OptifineDevRemapper extends Remapper {
 
@@ -132,7 +130,6 @@ public class OptifineDevRemapper extends Remapper {
     private Set<String> negativeCacheMethods = new HashSet<>();
     private Set<String> negativeCacheFields = new HashSet<>();
 
-    @Nullable
     private String getFieldType(String owner, String name) {
         if (fieldDescriptions.containsKey(owner)) {
             return fieldDescriptions.get(owner).get(name);
@@ -204,11 +201,11 @@ public class OptifineDevRemapper extends Remapper {
     }
 
     @Override
-    public String mapFieldName(String owner, String name, @Nullable String desc) {
+    public String mapFieldName(String owner, String name, String desc) {
         return mapFieldName(owner, name, desc, false);
     }
 
-    String mapFieldName(String owner, String name, @Nullable String desc, boolean raw) {
+    String mapFieldName(String owner, String name, String desc, boolean raw) {
         if (classNameMap == null || classNameMap.isEmpty()) {
             return name;
         }
@@ -259,7 +256,6 @@ public class OptifineDevRemapper extends Remapper {
     }
 
     @Override
-    @Nullable
     public String mapSignature(String signature, boolean typeSignature) {
         // JDT decorates some lambdas with this and SignatureReader chokes on it
         if (signature != null && signature.contains("!*")) {
@@ -323,7 +319,7 @@ public class OptifineDevRemapper extends Remapper {
         }
     }
 
-    public void mergeSuperMaps(String name, @Nullable String superName, String[] interfaces) {
+    public void mergeSuperMaps(String name, String superName, String[] interfaces) {
         //        System.out.printf("Computing super maps for %s: %s %s\n", name, superName, Arrays.asList(interfaces));
         if (classNameMap == null || classNameMap.isEmpty()) {
             return;
@@ -376,7 +372,6 @@ public class OptifineDevRemapper extends Remapper {
         return classNameMapInverse.getOrDefault(className, className);
     }
 
-    @Nullable
     public String getStaticFieldType(String oldType, String oldName, String newType, String newName) {
         String fType = getFieldType(newType, newName);
         if (oldType.equals(newType)) {
