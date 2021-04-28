@@ -74,20 +74,7 @@ public class OptifineDevRemapper extends Remapper {
             rawFieldMaps = new HashMap<>();
             Map<String, String> classMap = new HashMap<>();
             Map<String, String> classMapInverse = new HashMap<>();
-            for (String line : srgList) {
-                String[] parts = line.split("[:\\s]+");
-                for (int i = 0; i < parts.length; i++) {
-                    parts[i] = parts[i].trim();
-                }
-                String typ = parts[0];
-                if ("CL".equals(typ)) {
-                    parseClass(classMap, classMapInverse, parts);
-                } else if ("MD".equals(typ)) {
-                    parseMethod(parts);
-                } else if ("FD".equals(typ)) {
-                    parseField(parts);
-                }
-            }
+            parseSrg(srgList, rawMethodMaps, rawFieldMaps, classMap, classMapInverse);
             classNameMap = classMap;
             classNameMapInverse = classMapInverse;
         } catch (IOException ioe) {
@@ -97,11 +84,36 @@ public class OptifineDevRemapper extends Remapper {
         fieldNameMaps = new HashMap<>();
     }
 
+    // not static for parseField
+    public void parseSrg(
+            List<String> srgList,
+            Map<String, Map<String, String>> rawMethodMaps, 
+            Map<String, Map<String, String>> rawFieldMaps,
+            Map<String, String> classMap,
+            Map<String, String> classMapInverse
+    ) {
+        for (String line : srgList) {
+            String[] parts = line.split("[:\\s]+");
+            for (int i = 0; i < parts.length; i++) {
+                parts[i] = parts[i].trim();
+            }
+            String typ = parts[0];
+            if ("CL".equals(typ)) {
+                parseClass(classMap, classMapInverse, parts);
+            } else if ("MD".equals(typ)) {
+                parseMethod(parts, rawMethodMaps);
+            } else if ("FD".equals(typ)) {
+                parseField(parts, rawFieldMaps);
+            }
+        }
+    }
+
     public boolean isRemappedClass(String className) {
         return !map(className).equals(className);
     }
 
-    private void parseField(String[] parts) {
+    // not static for getFieldType
+    private void parseField(String[] parts, Map<String, Map<String, String>> rawFieldMaps) {
         String oldSrg = parts[1];
         int lastOld = oldSrg.lastIndexOf('/');
         String cl = oldSrg.substring(0, lastOld);
@@ -158,12 +170,12 @@ public class OptifineDevRemapper extends Remapper {
         }
     }
 
-    private void parseClass(Map<String, String> classMap, Map<String, String> classMapInverse, String[] parts) {
+    private static void parseClass(Map<String, String> classMap, Map<String, String> classMapInverse, String[] parts) {
         classMap.put(parts[1], parts[2]);
         classMapInverse.put(parts[2], parts[1]);
     }
 
-    private void parseMethod(String[] parts) {
+    private static void parseMethod(String[] parts, Map<String, Map<String, String>> rawMethodMaps) {
         String oldSrg = parts[1];
         int lastOld = oldSrg.lastIndexOf('/');
         String cl = oldSrg.substring(0, lastOld);
