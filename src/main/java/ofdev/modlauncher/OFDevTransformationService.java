@@ -58,7 +58,7 @@ public class OFDevTransformationService implements ITransformationService {
     private static Path findObfMcJar(IEnvironment env) {
         String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get();//target=fmluserdevclient for client
 
-        return FG3.findObfMcJar(target.toLowerCase(Locale.ROOT).contains("client"));
+        return FG3.findObfMcJar(System.getenv("MC_VERSION"), target.toLowerCase(Locale.ROOT).contains("client"));
     }
 
     private static IEnvironment env;

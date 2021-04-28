@@ -36,6 +36,7 @@ configurations {
 dependencies {
     shadow("org.ow2.asm:asm-debug-all:5.2")
     compileOnly 'cpw.mods:modlauncher:4.0.+'
+    compileOnly 'lzma:lzma:0.0.1'
     compileOnly('net.minecraft:launchwrapper:1.12') {
         transitive = true
     }

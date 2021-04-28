@@ -62,7 +62,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         } else {
             // then using ForgeGradle 3.x or later.
             boolean isClient = System.getenv("assetIndex") != null;
-            MC_JAR = FG3.findObfMcJar(isClient).toString();
+            MC_JAR = FG3.findObfMcJar(UtilsLW.mcVersion(), isClient).toString();
         }
     }
 
