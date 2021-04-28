@@ -14,6 +14,7 @@ import cpw.mods.modlauncher.api.INameMappingService;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.IncompatibleEnvironmentException;
+import ofdev.common.FG3;
 import ofdev.common.Utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,20 +56,9 @@ public class OFDevTransformationService implements ITransformationService {
     public static Path CLASS_DUMP_LOCATION;
 
     private static Path findObfMcJar(IEnvironment env) {
-        String requestedJar = System.getProperty("ofdev.mcjar");
-        if (requestedJar != null) {
-            return Paths.get(requestedJar);
-        }
-
-        String mcVersion = System.getenv("MC_VERSION");
         String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get();//target=fmluserdevclient for client
-        String dist = target.toLowerCase(Locale.ROOT).contains("client") ? "client" : "server";
 
-        return Paths.get(System.getProperty("user.home"),
-                ".gradle/caches/forge_gradle/minecraft_repo/versions",
-                mcVersion,
-                dist + ".jar"
-        );
+        return FG3.findObfMcJar(target.toLowerCase(Locale.ROOT).contains("client"));
     }
 
     private static IEnvironment env;
