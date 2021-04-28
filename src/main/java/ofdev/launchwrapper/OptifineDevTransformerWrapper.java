@@ -11,6 +11,7 @@ import static org.objectweb.asm.Opcodes.RETURN;
 
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.Launch;
+import ofdev.common.FG3;
 import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -50,10 +51,20 @@ import java.util.zip.ZipFile;
 public class OptifineDevTransformerWrapper implements IClassTransformer {
 
     // TODO: will it work on windows?
-    private static final String MC_JAR = System.getProperty("ofdev.mcjar",
-            System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/" +
-                    UtilsLW.mcVersion() + "/minecraft-" + UtilsLW.mcVersion() + ".jar");
+    private static final String MC_JAR;
 
+    static {
+        if (System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp") != null) {
+            // then using ForgeGradle 2.x or earlier.
+            MC_JAR = System.getProperty("ofdev.mcjar",
+                    System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/" +
+                            UtilsLW.mcVersion() + "/minecraft-" + UtilsLW.mcVersion() + ".jar");
+        } else {
+            // then using ForgeGradle 3.x or later.
+            boolean isClient = System.getenv("assetIndex") != null;
+            MC_JAR = FG3.findObfMcJar(isClient).toString();
+        }
+    }
 
     private static final FileSystem mcJar;
 
