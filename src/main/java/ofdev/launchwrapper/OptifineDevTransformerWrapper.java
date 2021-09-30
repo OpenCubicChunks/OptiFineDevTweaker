@@ -56,9 +56,15 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     static {
         if (System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp") != null) {
             // then using ForgeGradle 2.x or earlier.
+            String gradle_home = System.getenv("GRADLE_USER_HOME");
+            if (String.isEmpty(gradle_home)){
+                gradle_home = System.getProperty("user.home") + "/.gradle'
+            }
             MC_JAR = System.getProperty("ofdev.mcjar",
-                    System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/" +
-                            UtilsLW.mcVersion() + "/minecraft-" + UtilsLW.mcVersion() + ".jar");
+                                        gradle_home 
+                                        + "/caches/minecraft/net/minecraft/minecraft/" 
+                                        + UtilsLW.mcVersion() 
+                                        + "/minecraft-" + UtilsLW.mcVersion() + ".jar");
         } else {
             // then using ForgeGradle 3.x or later.
             boolean isClient = System.getenv("assetIndex") != null;
