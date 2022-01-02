@@ -1,7 +1,10 @@
 package ofdev.modlauncher;
 
+import cpw.mods.modlauncher.Launcher;
+import cpw.mods.modlauncher.TransformationServiceDecorator;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.INameMappingService;
+import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.ITransformerVotingContext;
 import cpw.mods.modlauncher.api.TransformerVoteResult;
@@ -14,11 +17,16 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -50,14 +58,55 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         Map<String, String> optifine = modlist.stream().filter(x -> x.get("name").equals("OptiFine")).findAny()
                 .orElseThrow(() -> new IllegalStateException("OptiFine not found"));
         String optifineFile = optifine.get("file");
+        // workaround for https://github.com/McModLauncher/securejarhandler/issues/20
+        if (optifineFile.isEmpty()) {
+            LOGGER.error("OptiFine file not found through API! Trying ModLauncher internals...");
+            try {
+                Field transformationServicesHandlerField = Launcher.class.getDeclaredField("transformationServicesHandler");
+                transformationServicesHandlerField.setAccessible(true);
+                Object transformationServicesHandler = transformationServicesHandlerField.get(Launcher.INSTANCE);
+                Class<?> TransformationServicesHandler = Class.forName("cpw.mods.modlauncher.TransformationServicesHandler");
+                Field serviceLookupField = TransformationServicesHandler.getDeclaredField("serviceLookup");
+                serviceLookupField.setAccessible(true);
+                @SuppressWarnings("unchecked") Map<String, TransformationServiceDecorator> serviceLookup =
+                        (Map<String, TransformationServiceDecorator>) serviceLookupField.get(transformationServicesHandler);
+                TransformationServiceDecorator optiFine = serviceLookup.get("OptiFine");
+                Field serviceField = TransformationServiceDecorator.class.getDeclaredField("service");
+                serviceField.setAccessible(true);
+                ITransformationService service = (ITransformationService) serviceField.get(optiFine);
+                Class<?> clazz = service.getClass();
+                Method getModule = Class.class.getMethod("getModule");
+                Object module = getModule.invoke(clazz);
+                Class<?> Module = Class.forName("java.lang.Module");
+                Method getLayer = Module.getMethod("getLayer");
+                Object layer = getLayer.invoke(module);
+                Method configurationMethod = Class.forName("java.lang.ModuleLayer").getMethod("configuration");
+                Object configuration = configurationMethod.invoke(layer);
+                Method getName = Module.getMethod("getName");
+                String moduleName = (String) getName.invoke(module);
+                Method findModule = Class.forName("java.lang.module.Configuration").getMethod("findModule", String.class);
+                @SuppressWarnings("unchecked") Optional<Object> optiModule = (Optional<Object>) findModule.invoke(configuration, moduleName);
+                Method referenceMethod = Class.forName("java.lang.module.ResolvedModule").getMethod("reference");
+                assert optiModule.isPresent();
+                Object reference = referenceMethod.invoke(optiModule.get());
+                Method locationMethod = Class.forName("java.lang.module.ModuleReference").getMethod("location");
+                @SuppressWarnings("unchecked") Optional<URI> location = (Optional<URI>) locationMethod.invoke(reference);
+                String path = location.get().getPath();
+                optifineFile = path.substring(0, path.lastIndexOf('#'));
+                optifineFile = Paths.get(optifineFile).getFileName().toString();
+            } catch (ReflectiveOperationException ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
         if (optifineFile.startsWith("/")) {
             optifineFile = optifineFile.substring(1);
         }
         Path gamedir = env.getProperty(IEnvironment.Keys.GAMEDIR.get()).orElseThrow(() -> new IllegalStateException("gamedir not found"));
 
-        List<Target> newTargets = new ArrayList<>();
+        Set<String> newTargets = new HashSet<>();
         try {
             Path ofPath = gamedir.resolve("mods").resolve(optifineFile).toRealPath();
+            System.out.println("OptiFine file: " + ofPath);
             try (FileSystem fs = FileSystems.newFileSystem(ofPath, env.getClass().getClassLoader())) {
                 for (Path root : fs.getRootDirectories()) {
                     try (Stream<Path> paths = Files.walk(root)) {
@@ -67,10 +116,21 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                                 Path relative = root.relativize(file);
                                 String name = relative.toString();
                                 name = name.substring(0, name.length() - ".class".length());
+                                if (name.startsWith("srg/")) {
+                                    name = name.substring("srg/".length());
+                                }
+                                // fails on 1.18/1.18.1 forge (at least 39.0.9 and older), because modlauncher still uses ASM7 API version
+                                // and this class triggers finding common superclasses
+                                // where one of the classes is a JDK class that uses sealed classes
+                                // related to https://github.com/McModLauncher/modlauncher/issues/74
+                                if (name.equals("net/optifine/reflect/Reflector")) {
+                                    continue;
+                                }
                                 // optifine package is transformers etc...
                                 // net/minecraftforge is forge dummy classes for loading without forge
-                                if (!name.startsWith("optifine/") && !name.startsWith("net/minecraftforge")) {
-                                    newTargets.add(Target.targetClass(name));
+                                // notch/ 1.18+ for notch-obfuscated code
+                                if (!name.startsWith("notch/") && !name.startsWith("optifine/") && !name.startsWith("net/minecraftforge")) {
+                                    newTargets.add(name);
                                 }
                             }
                         }
@@ -80,7 +140,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return newTargets;
+        return newTargets.stream().map(Target::targetClass).collect(Collectors.toList());
     }
 
     @Override public ClassNode transform(ClassNode input, ITransformerVotingContext context) {

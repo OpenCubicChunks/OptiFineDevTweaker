@@ -56,9 +56,25 @@ public class OFDevTransformationService implements ITransformationService {
     public static Path CLASS_DUMP_LOCATION;
 
     private static Path findObfMcJar(IEnvironment env) {
-        String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get();//target=fmluserdevclient for client
+        String requestedJar = System.getProperty("ofdev.mcjar");
+        if (requestedJar != null) {
+            return Paths.get(requestedJar);
+        }
 
-        return FG3.findObfMcJar(System.getenv("MC_VERSION"), target.toLowerCase(Locale.ROOT).contains("client"));
+        String mcVersion = System.getenv("MC_VERSION");
+        // newer forge/FG versions (mc 1.18+?) don't have MC_VERSION, instead supply mc version as --fml.mcVersion only
+        if (mcVersion == null) {
+            try {
+                Class<?> FMLLoader = Class.forName("net.minecraftforge.fml.loading.FMLLoader");
+                Class<?> VersionInfo = Class.forName("net.minecraftforge.fml.loading.VersionInfo");
+                Object versionInfo = FMLLoader.getMethod("versionInfo").invoke(null);
+                mcVersion = (String) VersionInfo.getMethod("mcVersion").invoke(versionInfo);
+            } catch (ReflectiveOperationException ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
+        String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get();//target=fmluserdevclient for client
+        return FG3.findObfMcJar(mcVersion, target.toLowerCase(Locale.ROOT).contains("client"));
     }
 
     private static IEnvironment env;

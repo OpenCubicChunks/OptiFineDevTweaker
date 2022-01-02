@@ -306,7 +306,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         RemappingClassAdapter remapAdapter = new OptifineDevAdapter(transformedNode);
 
         // 1.7.10 has a name conflict with superclass and the field shadows parent class field
-        // but optifine user the parent class field to set it's own
+        // but optifine uses the parent class field to set it's own
         Remapper videoSettingsFixer = new Remapper() {
             @Override
             public String mapFieldName(String owner, String name, String desc) {
