@@ -5,24 +5,98 @@ import net.minecraft.launchwrapper.ITweaker;
 import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
 import ofdev.common.Utils;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.ZipFile;
 
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
 public class OptifineDevTweakerWrapper implements ITweaker {
 
     // this requires the jar to be loaded by FML before OptiFine, the easiest way to do it is to name it aa_SomeJar
-    public static final Class<?> OF_TRANSFORMER_LAUNCH_CLASSLOADER = UtilsLW.loadClassLW("optifine.OptiFineClassTransformer");
+    public static final Class<?> OF_TRANSFORMER_LAUNCH_CLASSLOADER;
+
+    static {
+        Launch.classLoader.registerTransformer("ofdev.launchwrapper.OptifineDevTweakerWrapper$OptiFineTransformerTransformer");
+        OF_TRANSFORMER_LAUNCH_CLASSLOADER = UtilsLW.loadClassLW("optifine.OptiFineClassTransformer");
+    }
+
+    public static class OptiFineTransformerTransformer implements IClassTransformer {
+        @Override public byte[] transform(String name, String transformedName, byte[] basicClass) {
+            if (name != null && name.equals("optifine.OptiFineClassTransformer")) {
+                ClassReader cr = new ClassReader(basicClass);
+                ClassNode cn = new ClassNode();
+                cr.accept(cn, 0);
+                for (MethodNode method : cn.methods) {
+                    if (method.name.equals("<init>")) {
+                        AbstractInsnNode insn = null;
+                        for (int i = 0; i < method.instructions.size(); i++) {
+                            insn = method.instructions.get(i);
+                            if (insn.getOpcode() == Opcodes.INVOKESPECIAL) {
+                                break;
+                            }
+                        }
+                        IntInsnNode loadThis = new IntInsnNode(Opcodes.ALOAD, 0);
+                        MethodInsnNode initOptiTransformer = new MethodInsnNode(Opcodes.INVOKESTATIC,
+                                "ofdev/launchwrapper/OptifineDevTweakerWrapper",
+                                "initOptiTransformer", "(Ljava/lang/Object;)V", false);
+                        method.instructions.insert(insn, loadThis);
+                        method.instructions.insert(loadThis, initOptiTransformer);
+                        method.instructions.insert(initOptiTransformer, new InsnNode(Opcodes.RETURN));
+                    }
+                }
+                ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                cn.accept(cw);
+                return cw.toByteArray();
+            }
+            return basicClass;
+        }
+    }
+
+    public static void initOptiTransformer(Object ofTransformer) {
+        OptifineDevTransformerWrapper.ofTransformer = (IClassTransformer) ofTransformer;
+        try {
+            Class<? extends IClassTransformer> ofTransformerClass =
+                    (Class<? extends IClassTransformer>) OptifineDevTweakerWrapper.OF_TRANSFORMER_LAUNCH_CLASSLOADER;
+
+            URL ofUrl = ofTransformer.getClass().getProtectionDomain().getCodeSource().getLocation();
+
+            JarURLConnection connection = (JarURLConnection) ofUrl.openConnection();
+            ZipFile file = new ZipFile(new File(connection.getJarFileURL().toURI()));
+            UtilsLW.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
+
+            Class<?> ofPatcher = Launch.classLoader.findClass("optifine.Patcher");
+
+            Object patchMapVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationMap", file);
+            Object patternsVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationPatterns", patchMapVal);
+
+            UtilsLW.setFieldValue(ofTransformerClass, "patchMap", ofTransformer, patchMapVal);
+            UtilsLW.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
+            //System.out.println("Ignore the above, OptiFine should run anyway");
+            UtilsLW.setFieldValue(ofTransformer.getClass(), "instance", null, ofTransformer);
+
+        } catch (IOException | URISyntaxException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static Path CLASS_DUMP_LOCATION;
 
     @Override public void acceptOptions(List<String> args, File gameDir, File assetsDir, String profile) {
@@ -56,12 +130,6 @@ public class OptifineDevTweakerWrapper implements ITweaker {
         Set<String> transformerExceptions =
                 UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformerExceptions");
         transformerExceptions.removeIf(t -> t.startsWith("optifine"));
-
-        // OptiFine tweaker constructed new instance of optifine transformer, so it changed it's instance field
-        // now that OptiFine tweaker setup is done,fix it
-        Object ofTransformer = OptifineDevTransformerWrapper.ofTransformer;
-        UtilsLW.setFieldValue(ofTransformer.getClass(), "instance", null, ofTransformer);
-
         return new String[0];
     }
 }

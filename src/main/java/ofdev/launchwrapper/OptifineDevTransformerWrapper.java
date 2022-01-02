@@ -72,6 +72,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     static {
         try {
             mcJar = FileSystems.newFileSystem(MC_JAR, Launch.classLoader);
+            Launch.classLoader.addURL(MC_JAR.toUri().toURL());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -79,35 +80,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
 
     private static final OptifineDevRemapper remapper = OptifineDevRemapper.NOTCH_MCP;
 
-
     public static IClassTransformer ofTransformer;
-
-    {
-        try {
-            Class<? extends IClassTransformer> ofTransformerClass =
-                    (Class<? extends IClassTransformer>) OptifineDevTweakerWrapper.OF_TRANSFORMER_LAUNCH_CLASSLOADER;
-
-            ofTransformer = ofTransformerClass.newInstance();
-            URL ofUrl = ofTransformer.getClass().getProtectionDomain().getCodeSource().getLocation();
-
-            JarURLConnection connection = (JarURLConnection) ofUrl.openConnection();
-            ZipFile file = new ZipFile(new File(connection.getJarFileURL().toURI()));
-            UtilsLW.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
-
-            Class<?> ofPatcher = Launch.classLoader.findClass("optifine.Patcher");
-
-            Object patchMapVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationMap", file);
-            Object patternsVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationPatterns", patchMapVal);
-
-            UtilsLW.setFieldValue(ofTransformerClass, "patchMap", ofTransformer, patchMapVal);
-            UtilsLW.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
-            System.out.println("Ignore the above, OptiFine should run anyway");
-
-            Launch.classLoader.addURL(MC_JAR.toUri().toURL());
-        } catch (InstantiationException | IllegalAccessException | IOException | URISyntaxException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     @Override public byte[] transform(String name, String transformedName, byte[] basicClass) {
         if (basicClass == null || name == null) {

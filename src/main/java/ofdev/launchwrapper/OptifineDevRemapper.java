@@ -38,7 +38,6 @@ public class OptifineDevRemapper extends Remapper {
             try {
                 cpm = Class.forName("net.minecraftforge.fml.common.patcher.ClassPatchManager");
             } catch (ClassNotFoundException ex) {
-                ex.printStackTrace();
                 cpm = Class.forName("cpw.mods.fml.common.patcher.ClassPatchManager"); // 1.7.10
             }
             Object classPathManager = cpm.getField("INSTANCE").get(null);

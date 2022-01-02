@@ -172,14 +172,20 @@ public class UtilsLW {
         try {
             Class<?> reflector = UtilsLW.loadClassLW("Reflector");
 
+            try {
+                reflector.getDeclaredField("ForgeBlock_getLightOpacity");
+            } catch (NoSuchFieldException ignored) {
+                // 1.7.10 doesn't have this
+                return;
+            }
             Object ForgeBlock = UtilsLW.getFieldValue(reflector, null, "ForgeBlock");
             Object ForgeBlock_getLightOpacity = UtilsLW.getFieldValue(reflector, null, "ForgeBlock_getLightOpacity");
             Object ForgeBlock_getLightValue = UtilsLW.getFieldValue(reflector, null, "ForgeBlock_getLightValue");
 
             Class<?> ReflectorMethod = ForgeBlock_getLightOpacity.getClass();
-            Class IBlockState = UtilsLW.loadClassLW("net.minecraft.block.state.IBlockState");
-            Class IBlockAccess = UtilsLW.loadClassLW("net.minecraft.world.IBlockAccess");
-            Class BlockPos = UtilsLW.loadClassLW("net.minecraft.util.math.BlockPos");
+            Class<?> IBlockState = UtilsLW.loadClassLW("net.minecraft.block.state.IBlockState");
+            Class<?> IBlockAccess = UtilsLW.loadClassLW("net.minecraft.world.IBlockAccess");
+            Class<?> BlockPos = UtilsLW.loadClassLW("net.minecraft.util.math.BlockPos");
 
             if (UtilsLW.invokeMethod(ReflectorMethod, ForgeBlock_getLightOpacity, "getTargetMethod") == null) {
                 Object new_ForgeBlock_getLightOpacity = UtilsLW.construct(ReflectorMethod, ForgeBlock, "getLightOpacity", new Class[]{
