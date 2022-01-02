@@ -19,7 +19,6 @@ public class UtilsLW {
         try {
             return getFieldValue(loadClassLW("net.minecraftforge.common.ForgeVersion"), null, "mcVersion");
         } catch (RuntimeException ex) {
-            ex.printStackTrace();
             // 1.7.10 doesn't have it in ForgeVersion
             return getFieldValue(loadClassLW("cpw.mods.fml.common.Loader"), null, "MC_VERSION");
         }
