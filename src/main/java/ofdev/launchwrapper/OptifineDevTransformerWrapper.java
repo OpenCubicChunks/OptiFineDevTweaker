@@ -39,7 +39,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -51,18 +50,20 @@ import java.util.zip.ZipFile;
 public class OptifineDevTransformerWrapper implements IClassTransformer {
 
     // TODO: will it work on windows?
-    private static final String MC_JAR;
+    private static final Path MC_JAR;
 
     static {
-        if (System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp") != null) {
+        String userJarValue = System.getProperty("ofdev.mcjar");
+        if (userJarValue != null) {
+            MC_JAR = Paths.get(userJarValue);
+        } else if (System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp") != null) {
             // then using ForgeGradle 2.x or earlier.
-            MC_JAR = System.getProperty("ofdev.mcjar",
-                    System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/" +
-                            UtilsLW.mcVersion() + "/minecraft-" + UtilsLW.mcVersion() + ".jar");
+            MC_JAR = Utils.gradleHome().resolve("caches/minecraft/net/minecraft/minecraft")
+                    .resolve(UtilsLW.mcVersion()).resolve("/minecraft-" + UtilsLW.mcVersion() + ".jar");
         } else {
             // then using ForgeGradle 3.x or later.
             boolean isClient = System.getenv("assetIndex") != null;
-            MC_JAR = FG3.findObfMcJar(UtilsLW.mcVersion(), isClient).toString();
+            MC_JAR = FG3.findObfMcJar(UtilsLW.mcVersion(), isClient);
         }
     }
 
@@ -70,7 +71,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
 
     static {
         try {
-            mcJar = FileSystems.newFileSystem(Paths.get(MC_JAR), Launch.classLoader);
+            mcJar = FileSystems.newFileSystem(MC_JAR, Launch.classLoader);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -102,7 +103,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             UtilsLW.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
             System.out.println("Ignore the above, OptiFine should run anyway");
 
-            Launch.classLoader.addURL(new File(MC_JAR).toURI().toURL());
+            Launch.classLoader.addURL(MC_JAR.toUri().toURL());
         } catch (InstantiationException | IllegalAccessException | IOException | URISyntaxException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

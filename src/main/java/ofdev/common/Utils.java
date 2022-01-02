@@ -5,10 +5,19 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 
 public class Utils {
+
+    public static Path gradleHome() {
+        String gradleHome = System.getenv("GRADLE_USER_HOME");
+        if (gradleHome == null || gradleHome.isEmpty()){
+            gradleHome = System.getProperty("user.home") + "/.gradle";
+        }
+        return Paths.get(gradleHome);
+    }
 
     public static void rm(Path path) throws IOException {
         if (Files.exists(path)) {

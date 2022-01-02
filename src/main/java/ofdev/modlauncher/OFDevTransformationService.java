@@ -73,8 +73,8 @@ public class OFDevTransformationService implements ITransformationService {
                 throw new IllegalStateException(ex);
             }
         }
-        String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get();//target=fmluserdevclient for client
-        return FG3.findObfMcJar(mcVersion, target.toLowerCase(Locale.ROOT).contains("client"));
+        String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get().toLowerCase(Locale.ROOT);//target=fmluserdevclient for client
+        return FG3.findObfMcJar(mcVersion, target.contains("client") || target.contains("data"));
     }
 
     private static IEnvironment env;
