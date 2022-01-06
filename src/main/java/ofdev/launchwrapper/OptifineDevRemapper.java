@@ -1,8 +1,11 @@
 package ofdev.launchwrapper;
 
+import static ofdev.common.Utils.LOGGER;
+
 import LZMA.LzmaInputStream;
 import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
+import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.tree.ClassNode;
@@ -29,7 +32,6 @@ import java.util.Set;
 // this class is a modified version of FMLDeobfuscatingRemapper
 public class OptifineDevRemapper extends Remapper {
 
-
     private static final MethodHandle getPatchedResource;
     public static final OptifineDevRemapper NOTCH_MCP;
     static {
@@ -37,15 +39,17 @@ public class OptifineDevRemapper extends Remapper {
             Class<?> cpm;
             try {
                 cpm = Class.forName("net.minecraftforge.fml.common.patcher.ClassPatchManager");
+                LOGGER.info("Found ClassPatchManager in 1.8-1.12.2 package");
             } catch (ClassNotFoundException ex) {
                 cpm = Class.forName("cpw.mods.fml.common.patcher.ClassPatchManager"); // 1.7.10
+                LOGGER.info("Found ClassPatchManager in 1.7.10 package");
             }
             Object classPathManager = cpm.getField("INSTANCE").get(null);
 
             Method m = cpm.getMethod("getPatchedResource", String.class, String.class, LaunchClassLoader.class);
             getPatchedResource = MethodHandles.lookup().unreflect(m).bindTo(classPathManager);
         } catch (Throwable t) {
-            throw new RuntimeException(t);
+            throw new RuntimeException("Unable to fine ClassPatchManager.getPatchedResource method", t);
         }
         String notch2mcpProp = System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp");
         if (notch2mcpProp != null) {
@@ -54,10 +58,9 @@ public class OptifineDevRemapper extends Remapper {
             String srg2mcp = System.getProperty("net.minecraftforge.gradle.GradleStart.srg.srg-mcp");
             if (srg2mcp == null)
                 throw new IllegalStateException("Current version of ForgeGradle is not supported! Please report us!");
-            NOTCH_MCP = new OptifineDevRemapper(UtilsLW.mcVersion(), srg2mcp);
+            NOTCH_MCP = new OptifineDevRemapper(Utils.mcVersion(), srg2mcp);
         }
     }
-
 
     private Map<String, String> classNameMap, classNameMapInverse;
 
@@ -206,10 +209,6 @@ public class OptifineDevRemapper extends Remapper {
         }
     }
 
-    public boolean isRemappedClass(String className) {
-        return !map(className).equals(className);
-    }
-
     // not static for getFieldType
     private void parseField(String[] parts, Map<String, Map<String, String>> rawFieldMaps, boolean withSignatureKey) {
         String oldSrg = parts[1];
@@ -241,8 +240,8 @@ public class OptifineDevRemapper extends Remapper {
     private final Map<String, Map<String, String>> fieldDescriptions = new HashMap<>();
 
     // Cache null values so we don't waste time trying to recompute classes with no field or method maps
-    private Set<String> negativeCacheMethods = new HashSet<>();
-    private Set<String> negativeCacheFields = new HashSet<>();
+    private final Set<String> negativeCacheMethods = new HashSet<>();
+    private final Set<String> negativeCacheFields = new HashSet<>();
 
     private String getFieldType(String owner, String name) {
         if (fieldDescriptions.containsKey(owner)) {
@@ -428,7 +427,7 @@ public class OptifineDevRemapper extends Remapper {
             }
             String notchName = OptifineDevRemapper.NOTCH_MCP.notchFromMcpOrDefault(name);
             String notchSuperName = OptifineDevRemapper.NOTCH_MCP.notchFromMcpOrDefault(superName);
-            String[] notchInterfaces = Arrays.asList(interfaces).stream().map(OptifineDevRemapper.NOTCH_MCP::notchFromMcpOrDefault).toArray(String[]::new);
+            String[] notchInterfaces = Arrays.stream(interfaces).map(OptifineDevRemapper.NOTCH_MCP::notchFromMcpOrDefault).toArray(String[]::new);
             mergeSuperMaps(notchName, notchSuperName, notchInterfaces);
         } catch (IOException e) {
             e.printStackTrace();
@@ -478,10 +477,6 @@ public class OptifineDevRemapper extends Remapper {
         //        System.out.printf("Maps: %s %s\n", name, methodMap);
     }
 
-    public Set<String> getObfedClasses() {
-        return new HashSet<>(classNameMap.keySet());
-    }
-
     public String notchFromMcp(String className) {
         return classNameMapInverse.get(className);
     }
@@ -490,7 +485,7 @@ public class OptifineDevRemapper extends Remapper {
         return classNameMapInverse.getOrDefault(className, className);
     }
 
-    public String getStaticFieldType(String oldType, String oldName, String newType, String newName) {
+    @SuppressWarnings("unused") public String getStaticFieldType(String oldType, String oldName, String newType, String newName) {
         String fType = getFieldType(newType, newName);
         if (oldType.equals(newType)) {
             return fType;

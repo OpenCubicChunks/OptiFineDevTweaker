@@ -17,7 +17,7 @@ public class OfDevRemapper extends Remapper {
         return srg2mcp.apply(INameMappingService.Domain.METHOD, name);
     }
 
-    /*@Override*/ public String mapRecordComponentName(String owner, String name, String descriptor) {
+    /*@Override*/ @SuppressWarnings("unused") public String mapRecordComponentName(String owner, String name, String descriptor) {
         return srg2mcp.apply(INameMappingService.Domain.METHOD, name);
     }
 

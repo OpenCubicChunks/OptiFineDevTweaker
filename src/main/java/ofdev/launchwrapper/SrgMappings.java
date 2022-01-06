@@ -3,11 +3,7 @@ package ofdev.launchwrapper;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
@@ -47,23 +43,11 @@ public class SrgMappings {
 
 	private static void parseMethod(String substring) {
 		String[] s = substring.split(" ");
-
 		final int SRG_NAME = 0/*, SRG_DESC = 1*/, MCP_NAME = 2/*, MCP_DESC = 3*/;
-
 		int lastIndex = s[SRG_NAME].lastIndexOf('/') + 1;
-		if (lastIndex < 0) {
-			lastIndex = 0;
-		}
-
 		s[SRG_NAME] = s[SRG_NAME].substring(lastIndex);
-
 		lastIndex = s[MCP_NAME].lastIndexOf("/") + 1;
-		if (lastIndex < 0) {
-			lastIndex = 0;
-		}
-
 		s[MCP_NAME] = s[MCP_NAME].substring(lastIndex);
-
 		srgToMcp.put(s[SRG_NAME], s[MCP_NAME]);
 	}
 
@@ -73,21 +57,10 @@ public class SrgMappings {
 		}
 		String[] s = str.split(" ");
 		assert s.length == 2;
-
 		int lastIndex = s[0].lastIndexOf('/') + 1;
-		if (lastIndex < 0) {
-			lastIndex = 0;
-		}
-
 		s[0] = s[0].substring(lastIndex);
-
 		lastIndex = s[1].lastIndexOf("/") + 1;
-		if (lastIndex < 0) {
-			lastIndex = 0;
-		}
-
 		s[1] = s[1].substring(lastIndex);
-
 		srgToMcp.put(s[0], s[1]);
 	}
 }

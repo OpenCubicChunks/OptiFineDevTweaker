@@ -1,5 +1,7 @@
 package ofdev.modlauncher;
 
+import static ofdev.common.Utils.LOGGER;
+
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.TransformationServiceDecorator;
 import cpw.mods.modlauncher.api.IEnvironment;
@@ -9,8 +11,6 @@ import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.ITransformerVotingContext;
 import cpw.mods.modlauncher.api.TransformerVoteResult;
 import ofdev.common.Utils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.tree.ClassNode;
@@ -25,8 +25,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -37,9 +35,10 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.annotation.Nonnull;
+
 public class OFDevRetransformer implements ITransformer<ClassNode> {
 
-    private static final Logger LOGGER = LogManager.getLogger();
     private final Set<Target> targets;
     private final OfDevRemapper remapper;
 
@@ -75,7 +74,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                 serviceField.setAccessible(true);
                 ITransformationService service = (ITransformationService) serviceField.get(optiFine);
                 Class<?> clazz = service.getClass();
-                Method getModule = Class.class.getMethod("getModule");
+                @SuppressWarnings("JavaReflectionMemberAccess") Method getModule = Class.class.getMethod("getModule");
                 Object module = getModule.invoke(clazz);
                 Class<?> Module = Class.forName("java.lang.Module");
                 Method getLayer = Module.getMethod("getLayer");
@@ -91,7 +90,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                 Object reference = referenceMethod.invoke(optiModule.get());
                 Method locationMethod = Class.forName("java.lang.module.ModuleReference").getMethod("location");
                 @SuppressWarnings("unchecked") Optional<URI> location = (Optional<URI>) locationMethod.invoke(reference);
-                String path = location.get().getPath();
+                String path = location.orElseThrow(() -> new IllegalStateException("No module location!")).getPath();
                 optifineFile = path.substring(0, path.lastIndexOf('#'));
                 optifineFile = Paths.get(optifineFile).getFileName().toString();
             } catch (ReflectiveOperationException ex) {
@@ -143,7 +142,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         return newTargets.stream().map(Target::targetClass).collect(Collectors.toList());
     }
 
-    @Override public ClassNode transform(ClassNode input, ITransformerVotingContext context) {
+    @Nonnull @Override public ClassNode transform(@Nonnull ClassNode input, @Nonnull ITransformerVotingContext context) {
         ClassNode output = new ClassNode();
         ClassRemapper classRemapper = new ClassRemapper(output, remapper);
         input.accept(classRemapper);
@@ -157,11 +156,11 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
         return output;
     }
 
-    @Override public TransformerVoteResult castVote(ITransformerVotingContext context) {
+    @Nonnull @Override public TransformerVoteResult castVote(@Nonnull ITransformerVotingContext context) {
         return TransformerVoteResult.YES;
     }
 
-    @Override public Set<Target> targets() {
+    @Nonnull @Override public Set<Target> targets() {
         return targets;
     }
 

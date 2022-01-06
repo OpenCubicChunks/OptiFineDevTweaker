@@ -38,6 +38,7 @@ public class OptifineDevTweakerWrapper implements ITweaker {
         OF_TRANSFORMER_LAUNCH_CLASSLOADER = UtilsLW.loadClassLW("optifine.OptiFineClassTransformer");
     }
 
+    @SuppressWarnings("unused")
     public static class OptiFineTransformerTransformer implements IClassTransformer {
         @Override public byte[] transform(String name, String transformedName, byte[] basicClass) {
             if (name != null && name.equals("optifine.OptiFineClassTransformer")) {
@@ -70,27 +71,28 @@ public class OptifineDevTweakerWrapper implements ITweaker {
         }
     }
 
-    public static void initOptiTransformer(Object ofTransformer) {
+    // called from ASM
+    @SuppressWarnings("unused") public static void initOptiTransformer(Object ofTransformer) {
         OptifineDevTransformerWrapper.ofTransformer = (IClassTransformer) ofTransformer;
         try {
-            Class<? extends IClassTransformer> ofTransformerClass =
+            @SuppressWarnings("unchecked") Class<? extends IClassTransformer> ofTransformerClass =
                     (Class<? extends IClassTransformer>) OptifineDevTweakerWrapper.OF_TRANSFORMER_LAUNCH_CLASSLOADER;
 
             URL ofUrl = ofTransformer.getClass().getProtectionDomain().getCodeSource().getLocation();
 
             JarURLConnection connection = (JarURLConnection) ofUrl.openConnection();
             ZipFile file = new ZipFile(new File(connection.getJarFileURL().toURI()));
-            UtilsLW.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
+            Utils.setFieldValue(ofTransformerClass, "ofZipFile", ofTransformer, file);
 
             Class<?> ofPatcher = Launch.classLoader.findClass("optifine.Patcher");
 
-            Object patchMapVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationMap", file);
-            Object patternsVal = UtilsLW.invokeMethod(ofPatcher, null, "getConfigurationPatterns", patchMapVal);
+            Object patchMapVal = Utils.invokeMethod(ofPatcher, null, "getConfigurationMap", file);
+            Object patternsVal = Utils.invokeMethod(ofPatcher, null, "getConfigurationPatterns", patchMapVal);
 
-            UtilsLW.setFieldValue(ofTransformerClass, "patchMap", ofTransformer, patchMapVal);
-            UtilsLW.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
+            Utils.setFieldValue(ofTransformerClass, "patchMap", ofTransformer, patchMapVal);
+            Utils.setFieldValue(ofTransformerClass, "patterns", ofTransformer, patternsVal);
             //System.out.println("Ignore the above, OptiFine should run anyway");
-            UtilsLW.setFieldValue(ofTransformer.getClass(), "instance", null, ofTransformer);
+            Utils.setFieldValue(ofTransformer.getClass(), "instance", null, ofTransformer);
 
         } catch (IOException | URISyntaxException | ClassNotFoundException e) {
             throw new RuntimeException(e);
@@ -121,14 +123,14 @@ public class OptifineDevTweakerWrapper implements ITweaker {
         // force remove optifine's transformers
         // getLaunchArguments is called after all tweakers are initialized, so OF transformer should already exist
         List<IClassTransformer> transformers =
-                UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformers");
+                Utils.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformers");
         transformers.removeIf(t -> t.getClass().getName().equals("optifine.OptiFineClassTransformer"));
         // also remove all the new exclusions
         Set<String> classLoaderExceptions =
-                UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "classLoaderExceptions");
+                Utils.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "classLoaderExceptions");
         classLoaderExceptions.removeIf(t -> t.startsWith("optifine"));
         Set<String> transformerExceptions =
-                UtilsLW.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformerExceptions");
+                Utils.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformerExceptions");
         transformerExceptions.removeIf(t -> t.startsWith("optifine"));
         return new String[0];
     }

@@ -14,7 +14,6 @@ import cpw.mods.modlauncher.api.INameMappingService;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.IncompatibleEnvironmentException;
-import ofdev.common.FG3;
 import ofdev.common.Utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,7 +40,6 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,43 +47,23 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.zip.ZipFile;
 
+import javax.annotation.Nonnull;
+
 public class OFDevTransformationService implements ITransformationService {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static Path mcJar;
     public static Path CLASS_DUMP_LOCATION;
 
-    private static Path findObfMcJar(IEnvironment env) {
-        String requestedJar = System.getProperty("ofdev.mcjar");
-        if (requestedJar != null) {
-            return Paths.get(requestedJar);
-        }
-
-        String mcVersion = System.getenv("MC_VERSION");
-        // newer forge/FG versions (mc 1.18+?) don't have MC_VERSION, instead supply mc version as --fml.mcVersion only
-        if (mcVersion == null) {
-            try {
-                Class<?> FMLLoader = Class.forName("net.minecraftforge.fml.loading.FMLLoader");
-                Class<?> VersionInfo = Class.forName("net.minecraftforge.fml.loading.VersionInfo");
-                Object versionInfo = FMLLoader.getMethod("versionInfo").invoke(null);
-                mcVersion = (String) VersionInfo.getMethod("mcVersion").invoke(versionInfo);
-            } catch (ReflectiveOperationException ex) {
-                throw new IllegalStateException(ex);
-            }
-        }
-        String target = env.getProperty(IEnvironment.Keys.LAUNCHTARGET.get()).get().toLowerCase(Locale.ROOT);//target=fmluserdevclient for client
-        return FG3.findObfMcJar(mcVersion, target.contains("client") || target.contains("data"));
-    }
-
     private static IEnvironment env;
     private static BiConsumer<ClassNode, ClassNode> fixMemberAccess;
 
-    @Override public String name() {
+    @Nonnull @Override public String name() {
         return "OptiFineDevTransformationService";
     }
 
-    @Override public void initialize(IEnvironment environment) {
-        mcJar = findObfMcJar(environment);
+    @Override public void initialize(@Nonnull IEnvironment environment) {
+        mcJar = Utils.findMinecraftJar();
         try {
             Path classDump = Paths.get(".").toAbsolutePath().normalize().resolve(".optifineDev.classes");
             Utils.rm(classDump);
@@ -95,11 +73,11 @@ public class OFDevTransformationService implements ITransformationService {
         }
     }
 
-    @Override public void beginScanning(IEnvironment environment) {
+    @Override public void beginScanning(@Nonnull IEnvironment environment) {
 
     }
 
-    @Override public void onLoad(IEnvironment envIn, Set<String> otherServices) throws IncompatibleEnvironmentException {
+    @Override public void onLoad(@Nonnull IEnvironment envIn, @Nonnull Set<String> otherServices) throws IncompatibleEnvironmentException {
         env = envIn;
         if (!otherServices.contains("OptiFine")) {
             throw new IncompatibleEnvironmentException("Couldn't find OptiFine!");
@@ -178,7 +156,7 @@ public class OFDevTransformationService implements ITransformationService {
     }
 
     // called from asm-generated code
-    public static InputStream getResourceStream(String path) {
+    @SuppressWarnings("unused") public static InputStream getResourceStream(String path) {
         try {
             if (!path.startsWith("/")) {
                 path = '/' + path;
@@ -191,7 +169,7 @@ public class OFDevTransformationService implements ITransformationService {
         }
     }
 
-    public static ClassNode wrapOptiFineTransform(ClassNode transformed, ClassNode original) {
+    @SuppressWarnings("unused") public static ClassNode wrapOptiFineTransform(ClassNode transformed, ClassNode original) {
         ClassNode output = new ClassNode();
         Optional<BiFunction<INameMappingService.Domain, String, String>> srgtomcp = env.findNameMapping("srg");
         if (!srgtomcp.isPresent()) {
@@ -212,7 +190,7 @@ public class OFDevTransformationService implements ITransformationService {
         return output;
     }
 
-    @Override public List<ITransformer> transformers() {
+    @SuppressWarnings("rawtypes") @Nonnull @Override public List<ITransformer> transformers() {
         return Collections.singletonList(new OFDevRetransformer(env));
     }
 

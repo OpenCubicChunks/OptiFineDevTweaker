@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 
 // this class is a modified version of FMLRemappingAdapter
+@SuppressWarnings("deprecation")
 public class OptifineDevAdapter extends RemappingClassAdapter {
 
     public OptifineDevAdapter(ClassVisitor cv) {
@@ -38,16 +39,13 @@ public class OptifineDevAdapter extends RemappingClassAdapter {
         }
         String notchName = OptifineDevRemapper.NOTCH_MCP.notchFromMcpOrDefault(name);
         String notchSuperName = OptifineDevRemapper.NOTCH_MCP.notchFromMcpOrDefault(superName);
-        String[] notchInterfaces = Arrays.asList(interfaces).stream().map(OptifineDevRemapper.NOTCH_MCP::notchFromMcpOrDefault).toArray(String[]::new);
+        String[] notchInterfaces = Arrays.stream(interfaces).map(OptifineDevRemapper.NOTCH_MCP::notchFromMcpOrDefault).toArray(String[]::new);
         OptifineDevRemapper.NOTCH_MCP.mergeSuperMaps(notchName, notchSuperName, notchInterfaces);
         super.visit(version, access, name, signature, superName, interfaces);
     }
 
     @Override
     public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-        if(this.className.equals("rl")) {
-            int i = 0;
-        }
         OptifineDevRemapper remapper = OptifineDevRemapper.NOTCH_MCP;
         FieldVisitor fv = cv.visitField(access,
                 remapper.mapMemberFieldName(className, name, desc),

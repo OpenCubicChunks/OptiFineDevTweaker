@@ -11,7 +11,6 @@ import static org.objectweb.asm.Opcodes.RETURN;
 
 import net.minecraft.launchwrapper.IClassTransformer;
 import net.minecraft.launchwrapper.Launch;
-import ofdev.common.FG3;
 import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -27,51 +26,28 @@ import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Modifier;
-import java.net.JarURLConnection;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.zip.ZipFile;
 
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
 public class OptifineDevTransformerWrapper implements IClassTransformer {
 
-    // TODO: will it work on windows?
-    private static final Path MC_JAR;
-
-    static {
-        String userJarValue = System.getProperty("ofdev.mcjar");
-        if (userJarValue != null) {
-            MC_JAR = Paths.get(userJarValue);
-        } else if (System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp") != null) {
-            // then using ForgeGradle 2.x or earlier.
-            MC_JAR = Utils.gradleHome().resolve("caches/minecraft/net/minecraft/minecraft")
-                    .resolve(UtilsLW.mcVersion()).resolve("minecraft-" + UtilsLW.mcVersion() + ".jar");
-        } else {
-            // then using ForgeGradle 3.x or later.
-            boolean isClient = System.getenv("assetIndex") != null;
-            MC_JAR = FG3.findObfMcJar(UtilsLW.mcVersion(), isClient);
-        }
-    }
-
-    private static final FileSystem mcJar;
+    private static final Path MC_JAR = Utils.findMinecraftJar();
+    private static final FileSystem mcJarFs;
 
     static {
         try {
-            mcJar = FileSystems.newFileSystem(MC_JAR, Launch.classLoader);
+            mcJarFs = FileSystems.newFileSystem(MC_JAR, Launch.classLoader);
             Launch.classLoader.addURL(MC_JAR.toUri().toURL());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -102,7 +78,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             String notchName = remapper.notchFromMcp(classJvmName);
             byte[] vanillaCode = extractVanillaBytecode(basicClass, notchName);
 
-            Mutable<Boolean> isModified = new Mutable(false);
+            Mutable<Boolean> isModified = new Mutable<>(false);
 
             byte[] ofTransformedCode = getOptifineTransformedBytecode(name, basicClass, notchName, vanillaCode, isModified);
             // deobfuscate OptiFine transformed code to MCP names
@@ -277,7 +253,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     private ClassNode toDeobfClassNode(byte[] code) {
         ClassReader classReader = new ClassReader(code);
         ClassNode transformedNode = new ClassNode(Opcodes.ASM5);
-        RemappingClassAdapter remapAdapter = new OptifineDevAdapter(transformedNode);
+        @SuppressWarnings("deprecation") RemappingClassAdapter remapAdapter = new OptifineDevAdapter(transformedNode);
 
         // 1.7.10 has a name conflict with superclass and the field shadows parent class field
         // but optifine uses the parent class field to set it's own
@@ -308,14 +284,13 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     }
 
     private byte[] extractVanillaBytecode(byte[] basicClass, String notchName) throws IOException {
-        byte[] vanillaCode = basicClass;
         if (notchName != null) {
-            Path classPath = mcJar.getPath(notchName.replace(".", "/") + ".class");
+            Path classPath = mcJarFs.getPath(notchName.replace(".", "/") + ".class");
             if (Files.exists(classPath)) {
                 return Files.readAllBytes(classPath);
             }
         }
-        return vanillaCode;
+        return basicClass;
     }
 
     private static ClassNode getClassNode(byte[] data) {
@@ -409,26 +384,6 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
 
         private enum Visibility {
             PRIVATE, DEFAULT, PROTECTED, PUBLIC;
-
-            public int set(int mod) {
-                // remove existing modifiers
-                mod &= ~(Modifier.PRIVATE | Modifier.PUBLIC | Modifier.PROTECTED);
-                // apply new modifier
-                switch (this) {
-                    case DEFAULT:
-                        break;
-                    case PRIVATE:
-                        mod |= Modifier.PRIVATE;
-                        break;
-                    case PROTECTED:
-                        mod |= Modifier.PROTECTED;
-                        break;
-                    case PUBLIC:
-                        mod |= Modifier.PUBLIC;
-                        break;
-                }
-                return mod;
-            }
 
             public int asInt() {
                 switch (this) {
