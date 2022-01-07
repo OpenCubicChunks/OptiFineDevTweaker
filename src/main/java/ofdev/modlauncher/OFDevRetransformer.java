@@ -92,6 +92,9 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                 @SuppressWarnings("unchecked") Optional<URI> location = (Optional<URI>) locationMethod.invoke(reference);
                 String path = location.orElseThrow(() -> new IllegalStateException("No module location!")).getPath();
                 optifineFile = path.substring(0, path.lastIndexOf('#'));
+                if (optifineFile.startsWith("/")) {
+                    optifineFile = optifineFile.substring(1);
+                }
                 optifineFile = Paths.get(optifineFile).getFileName().toString();
             } catch (ReflectiveOperationException ex) {
                 throw new IllegalStateException(ex);
