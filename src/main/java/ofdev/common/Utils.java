@@ -89,6 +89,13 @@ public class Utils {
         if (Files.exists(oldFgPath)) {
             return oldFgPath;
         }
+        // RetroFuturaGradle https://github.com/GTNewHorizons/RetroFuturaGradle
+        //caches/retro_futura_gradle/mc-vanilla/1.12.2/
+        Path rfgPath = gradleHome.resolve("caches/retro_futura_gradle/mc-vanilla")
+                .resolve(mcVersion).resolve(mcVersion + ".jar").toAbsolutePath();
+        if (Files.exists(rfgPath)) {
+            return rfgPath;
+        }
         // We don't support running server with OptiFine
         // FG3 - FG5
         Path newFgPath = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/versions")
