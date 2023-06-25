@@ -35,11 +35,15 @@ configurations {
 
 dependencies {
     shadow("org.ow2.asm:asm-debug-all:5.2")
-    compileOnly 'cpw.mods:modlauncher:4.0.+'
+    compileOnly('cpw.mods:modlauncher:4.0.+') {
+        transitive = false
+    }
     compileOnly 'lzma:lzma:0.0.1'
     compileOnly('net.minecraft:launchwrapper:1.12') {
-        transitive = true
+        transitive = false
     }
+    // log4j version from 1.7.10, the oldest we support
+    compileOnly("org.apache.logging.log4j:log4j-api:2.0-beta9")
 }
 
 task shadowJarLW(type: ShadowJar) {

@@ -46,9 +46,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.zip.ZipFile;
-
-import javax.annotation.Nonnull;
-
 public class OFDevTransformationService implements ITransformationService {
 
     private static final Logger LOGGER = LogManager.getLogger();
@@ -58,11 +55,11 @@ public class OFDevTransformationService implements ITransformationService {
     private static IEnvironment env;
     private static BiConsumer<ClassNode, ClassNode> fixMemberAccess;
 
-    @Nonnull @Override public String name() {
+    @Override public String name() {
         return "OptiFineDevTransformationService";
     }
 
-    @Override public void initialize(@Nonnull IEnvironment environment) {
+    @Override public void initialize(IEnvironment environment) {
         mcJar = Utils.findMinecraftJar();
         try {
             Path classDump = Paths.get(".").toAbsolutePath().normalize().resolve(".optifineDev.classes");
@@ -73,11 +70,11 @@ public class OFDevTransformationService implements ITransformationService {
         }
     }
 
-    @Override public void beginScanning(@Nonnull IEnvironment environment) {
+    @Override public void beginScanning(IEnvironment environment) {
 
     }
 
-    @Override public void onLoad(@Nonnull IEnvironment envIn, @Nonnull Set<String> otherServices) throws IncompatibleEnvironmentException {
+    @Override public void onLoad(IEnvironment envIn, Set<String> otherServices) throws IncompatibleEnvironmentException {
         env = envIn;
         if (!otherServices.contains("OptiFine")) {
             throw new IncompatibleEnvironmentException("Couldn't find OptiFine!");
@@ -190,7 +187,7 @@ public class OFDevTransformationService implements ITransformationService {
         return output;
     }
 
-    @SuppressWarnings("rawtypes") @Nonnull @Override public List<ITransformer> transformers() {
+    @SuppressWarnings("rawtypes") @Override public List<ITransformer> transformers() {
         return Collections.singletonList(new OFDevRetransformer(env));
     }
 
