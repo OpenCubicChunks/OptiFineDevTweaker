@@ -56,9 +56,14 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                 .orElseThrow(() -> new IllegalStateException("modlist not found"));
         Map<String, String> optifine = modlist.stream().filter(x -> x.get("name").equals("OptiFine")).findAny()
                 .orElseThrow(() -> new IllegalStateException("OptiFine not found"));
+        Map<String, String> fml = modlist.stream().filter(x -> x.get("name").equals("fml")).findAny().orElse(null);
         String optifineFile = optifine.get("file");
+        String fmlFile = fml == null ? "" : fml.get("file");
+        LOGGER.info("Got OptiFine file name \"{}\"", optifineFile);
         // workaround for https://github.com/McModLauncher/securejarhandler/issues/20
-        if (optifineFile.isEmpty()) {
+        // NOTE: also do this is fml filename matches optifine file name, in that case the jar appears to be modlauncher jar
+        // TODO: report a bug to whatever
+        if (optifineFile.isEmpty() || optifineFile.equals(fmlFile)) {
             LOGGER.error("OptiFine file not found through API! Trying ModLauncher internals...");
             try {
                 Field transformationServicesHandlerField = Launcher.class.getDeclaredField("transformationServicesHandler");

@@ -31,6 +31,22 @@ public class OfDevRemapper extends Remapper {
         if (owner.equals("net/minecraft/client/model/geom/ModelPart") && name.equals("getChild")) {
             return "getChild_OF";
         }
+        // 1.20.1:
+        if (owner.equals("net/minecraft/client/OptionInstance$Enum") && name.equals("codec")) {
+            return "codec_OF";
+        }
+        if (owner.equals("net/minecraft/client/OptionInstance$AltEnum") && name.equals("valueSetter")) {
+            return "valueSetter_OF";
+        }
+        if (owner.equals("net/minecraft/client/OptionInstance$AltEnum") && name.equals("codec")) {
+            return "codec_OF";
+        }
+        if (owner.equals("net/minecraft/client/OptionInstance$LazyEnum") && name.equals("codec")) {
+            return "codec_OF";
+        }
+        if (owner.equals("net/minecraft/client/resources/model/ModelBakery") && name.equals("loadBlockModel")) {
+            return "loadBlockModel_OF";
+        }
         String method = srg2mcp.apply(INameMappingService.Domain.METHOD, name);
         if (method.equals(name)) {
             // record components are technically methods but mapped as fields
