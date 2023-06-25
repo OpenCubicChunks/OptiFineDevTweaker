@@ -21,14 +21,19 @@ import java.util.Set;
 
 public class Utils {
     private static final boolean DUMP_CLASSES = !Boolean.getBoolean("ofdev.skipDumpClasses");
+    private static final String CUSTOM_MC_VERSION = System.getProperty("ofdev.mcVersion");
     private static final String CUSTOM_MC_JAR = System.getProperty("ofdev.mcjar");
     public static final Logger LOGGER = LogManager.getLogger("OptiFineDevTweaker");
 
     public static String mcVersion() {
+        if (CUSTOM_MC_VERSION != null) {
+            LOGGER.info("Found custom provided Minecraft version \"{}\"", CUSTOM_MC_VERSION);
+            return CUSTOM_MC_VERSION;
+        }
         // environment variable from new FG?
         String envVersion = System.getenv("MC_VERSION");
-        if (envVersion != null) {
-            LOGGER.info("Found Minecraft version {} from environment variable MC_VERSION", envVersion);
+        LOGGER.info("Got Minecraft version \"{}\" from environment variable MC_VERSION", envVersion);
+        if (envVersion != null && !envVersion.equals("${MC_VERSION}")) {
             return envVersion;
         }
         Throwable ex1;
@@ -85,27 +90,45 @@ public class Utils {
         String mcVersion = mcVersion();
 
         // FG1 - FG2
-        Path oldFgPath = gradleHome.resolve("caches/minecraft/net/minecraft/minecraft")
+        Path fg1fg2Path = gradleHome.resolve("caches/minecraft/net/minecraft/minecraft")
                         .resolve(mcVersion).resolve("minecraft-" + mcVersion + ".jar").toAbsolutePath();
-        if (Files.exists(oldFgPath)) {
-            return oldFgPath;
+        if (Files.exists(fg1fg2Path)) {
+            LOGGER.info("Found Minecraft jar {} from FG1.x/FG2.x", fg1fg2Path);
+            return fg1fg2Path;
         }
         // RetroFuturaGradle https://github.com/GTNewHorizons/RetroFuturaGradle
         //caches/retro_futura_gradle/mc-vanilla/1.12.2/
         Path rfgPath = gradleHome.resolve("caches/retro_futura_gradle/mc-vanilla")
                 .resolve(mcVersion).resolve(mcVersion + ".jar").toAbsolutePath();
         if (Files.exists(rfgPath)) {
+            LOGGER.info("Found Minecraft jar {} from RetroFuturaGradle", rfgPath);
             return rfgPath;
         }
         // We don't support running server with OptiFine
         // FG3 - FG5
-        Path newFgPath = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/versions")
+        Path fg3plusPath = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/versions")
                 .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
-        if (Files.exists(newFgPath)) {
-            return newFgPath;
+        if (Files.exists(fg3plusPath)) {
+            LOGGER.info("Found Minecraft jar {} from FG3+", fg3plusPath);
+            return fg3plusPath;
         }
+        // very old FG3 versions used slightly different path
+        Path oldFg3Path = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/version")
+                .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+        if (Files.exists(oldFg3Path)) {
+            LOGGER.info("Found Minecraft jar {} from old FG3", oldFg3Path);
+            return oldFg3Path;
+        }
+        // as a last resort, attempt vanilla launcher
+        Path mcLauncherJar = Paths.get(System.getProperty("user.home")).resolve(".minecraft/versions").resolve(mcVersion).resolve(mcVersion + ".jar");
+        if (Files.exists(mcLauncherJar)) {
+            LOGGER.info("Found Minecraft jar {} from Minecraft Launcher", mcLauncherJar);
+            return mcLauncherJar;
+        }
+        String list = String.join("\n\t",
+                fg1fg2Path.toString(), rfgPath.toString(), fg3plusPath.toString(), oldFg3Path.toString(), mcLauncherJar.toString());
         throw new IllegalStateException("Could not fine Minecraft jar file. Try specifying Minecraft jar location with -Dofdev.mcjar=path\n\t"
-                + "Attempted locations:\n\t" + oldFgPath + "\n\t" + newFgPath);
+                + "Attempted locations:\n\t" + list);
     }
 
     public static Path gradleHome() {
