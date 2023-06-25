@@ -154,11 +154,10 @@ public class OFDevTransformationService implements ITransformationService {
 
     // called from asm-generated code
     @SuppressWarnings("unused") public static InputStream getResourceStream(String path) {
-        try {
+        try(FileSystem fs = FileSystems.newFileSystem(mcJar, OFDevTransformationService.class.getClassLoader())){
             if (!path.startsWith("/")) {
                 path = '/' + path;
             }
-            FileSystem fs = FileSystems.newFileSystem(mcJar, OFDevTransformationService.class.getClassLoader());
             Path file = fs.getPath(path);
             return Files.newInputStream(file);
         } catch (IOException e) {
