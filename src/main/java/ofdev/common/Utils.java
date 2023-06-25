@@ -20,6 +20,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class Utils {
+    private static final boolean DUMP_CLASSES = !Boolean.getBoolean("ofdev.skipDumpClasses");
+    private static final String CUSTOM_MC_JAR = System.getProperty("ofdev.mcjar");
     public static final Logger LOGGER = LogManager.getLogger("OptiFineDevTweaker");
 
     public static String mcVersion() {
@@ -67,11 +69,10 @@ public class Utils {
     }
 
     public static Path findMinecraftJar() {
-        String requestedJar = System.getProperty("ofdev.mcjar");
-        if (requestedJar != null) {
-            Path path = Paths.get(requestedJar);
+        if (CUSTOM_MC_JAR != null) {
+            Path path = Paths.get(CUSTOM_MC_JAR);
             if (!Files.exists(path)) {
-                throw new IllegalArgumentException("Provided Minecraft jar path " + requestedJar + " doesn't exist!");
+                throw new IllegalArgumentException("Provided Minecraft jar path " + CUSTOM_MC_JAR + " doesn't exist!");
             }
             Path absolutePath = path.toAbsolutePath();
             LOGGER.info("Found Minecraft jar {} from ofdev.mcjar property", absolutePath);
@@ -151,6 +152,9 @@ public class Utils {
     }
 
     public static void dumpBytecode(Path loc, String className, byte[] code) throws IOException {
+        if (!DUMP_CLASSES) {
+            return;
+        }
         String subPath = className.replaceAll("\\.", "/") + ".class";
         Path location = loc.resolve(subPath);
         mkdirs(location.getParent());
