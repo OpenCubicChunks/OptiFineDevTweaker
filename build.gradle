@@ -99,7 +99,33 @@ task shadowJarAll(type: ShadowJar) {
         ])
     }
 }
-build.dependsOn(shadowJarAll, shadowJarML, shadowJarLW)
+
+task shadowJarAllNoVersionForSymlink(type: ShadowJar) {
+    dependsOn(shadowJarLW)
+    from(sourceSets.main.output) {
+        include('ofdev/modlauncher/**')
+        include('META-INF/**')
+    }
+    from(shadowJarLW.archivePath.absolutePath) {
+        include('*')
+    }
+    version(null)
+    classifier = "all"
+    manifest {
+        attributes([
+                "TweakClass": "ofdev.launchwrapper.OptifineDevTweakerWrapper",
+                "TweakOrder": "-10000",
+                "Specification-Title": "ofdevtweaker",
+                "Specification-Vendor": "ofdevtweaker",
+                "Specification-Version": "1", // We are version 1 of ourselves
+                "Implementation-Title": project.name,
+                "Implementation-Version": "${version}",
+                "Implementation-Vendor" :"ofdevtweaker",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+build.dependsOn(shadowJarAll, shadowJarML, shadowJarLW, shadowJarAllNoVersionForSymlink)
 
 jar {
     manifest {
