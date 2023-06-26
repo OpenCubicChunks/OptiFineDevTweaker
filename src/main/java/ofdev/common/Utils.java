@@ -121,6 +121,13 @@ public class Utils {
                 LOGGER.info("Found Minecraft jar {} from old FG3 (provided cache)", oldFg3Path);
                 return oldFg3Path;
             }
+            // fabric-loom from architectury
+            Path fabricLoom = maybeFgCache.resolve(mcVersion).resolve("minecraft-client.jar").toAbsolutePath();
+            attemptedPaths.add(fabricLoom);
+            if (Files.exists(fabricLoom)) {
+                LOGGER.info("Found Minecraft jar {} from fabric-loom/architectury (provided cache)", oldFg3Path);
+                return fabricLoom;
+            }
         }
 
         // global gradle cache:
@@ -162,6 +169,13 @@ public class Utils {
         if (Files.exists(oldFg3Path)) {
             LOGGER.info("Found Minecraft jar {} from old FG3 (global cache)", oldFg3Path);
             return oldFg3Path;
+        }
+        // fabric-loom from architectury
+        Path fabricLoom = Utils.gradleHome().resolve("caches/fabric-loom").resolve(mcVersion).resolve("minecraft-client.jar").toAbsolutePath();
+        attemptedPaths.add(fabricLoom);
+        if (Files.exists(fabricLoom)) {
+            LOGGER.info("Found Minecraft jar {} from fabric-loom/architectury (global cache)", oldFg3Path);
+            return fabricLoom;
         }
         // as a last resort, attempt vanilla launcher
         Path mcLauncherJar = Paths.get(System.getProperty("user.home")).resolve(".minecraft/versions").resolve(mcVersion).resolve(mcVersion + ".jar");
