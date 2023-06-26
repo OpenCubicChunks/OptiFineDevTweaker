@@ -42,7 +42,7 @@ import java.util.Set;
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
 public class OptifineDevTransformerWrapper implements IClassTransformer {
 
-    private static final Path MC_JAR = Utils.findMinecraftJar();
+    private static final Path MC_JAR = Utils.findMinecraftJar(null);
     private static final FileSystem mcJarFs;
 
     static {

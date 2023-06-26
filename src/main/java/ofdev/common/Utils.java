@@ -73,7 +73,7 @@ public class Utils {
         throw error;
     }
 
-    public static Path findMinecraftJar() {
+    public static Path findMinecraftJar(Path maybeFgCache) {
         if (CUSTOM_MC_JAR != null) {
             Path path = Paths.get(CUSTOM_MC_JAR);
             if (!Files.exists(path)) {
@@ -83,17 +83,37 @@ public class Utils {
             LOGGER.info("Found Minecraft jar {} from ofdev.mcjar property", absolutePath);
             return absolutePath;
         }
+        String mcVersion = mcVersion();
+
+        if (maybeFgCache != null) {
+            // provided likely FG cache:
+            // FG3 - FG5
+            Path fg3plusPath = maybeFgCache.resolve("minecraft_repo/versions")
+                    .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+            if (Files.exists(fg3plusPath)) {
+                LOGGER.info("Found Minecraft jar {} from FG3+ (provided cache)", fg3plusPath);
+                return fg3plusPath;
+            }
+            // very old FG3 versions used slightly different path
+            Path oldFg3Path = maybeFgCache.resolve("minecraft_repo/version")
+                    .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+            if (Files.exists(oldFg3Path)) {
+                LOGGER.info("Found Minecraft jar {} from old FG3 (provided cache)", oldFg3Path);
+                return oldFg3Path;
+            }
+        }
+
+        // global gradle cache:
         Path gradleHome = Utils.gradleHome();
         if (!Files.exists(gradleHome)) {
             throw new IllegalStateException("Gradle home doesn't exist at " + gradleHome.toAbsolutePath());
         }
-        String mcVersion = mcVersion();
 
         // FG1 - FG2
         Path fg1fg2Path = gradleHome.resolve("caches/minecraft/net/minecraft/minecraft")
                         .resolve(mcVersion).resolve("minecraft-" + mcVersion + ".jar").toAbsolutePath();
         if (Files.exists(fg1fg2Path)) {
-            LOGGER.info("Found Minecraft jar {} from FG1.x/FG2.x", fg1fg2Path);
+            LOGGER.info("Found Minecraft jar {} from FG1.x/FG2.x (global cache)", fg1fg2Path);
             return fg1fg2Path;
         }
         // RetroFuturaGradle https://github.com/GTNewHorizons/RetroFuturaGradle
@@ -101,7 +121,7 @@ public class Utils {
         Path rfgPath = gradleHome.resolve("caches/retro_futura_gradle/mc-vanilla")
                 .resolve(mcVersion).resolve(mcVersion + ".jar").toAbsolutePath();
         if (Files.exists(rfgPath)) {
-            LOGGER.info("Found Minecraft jar {} from RetroFuturaGradle", rfgPath);
+            LOGGER.info("Found Minecraft jar {} from RetroFuturaGradle (global cache)", rfgPath);
             return rfgPath;
         }
         // We don't support running server with OptiFine
@@ -109,14 +129,14 @@ public class Utils {
         Path fg3plusPath = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/versions")
                 .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
         if (Files.exists(fg3plusPath)) {
-            LOGGER.info("Found Minecraft jar {} from FG3+", fg3plusPath);
+            LOGGER.info("Found Minecraft jar {} from FG3+ (global cache)", fg3plusPath);
             return fg3plusPath;
         }
         // very old FG3 versions used slightly different path
         Path oldFg3Path = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/version")
                 .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
         if (Files.exists(oldFg3Path)) {
-            LOGGER.info("Found Minecraft jar {} from old FG3", oldFg3Path);
+            LOGGER.info("Found Minecraft jar {} from old FG3 (global cache)", oldFg3Path);
             return oldFg3Path;
         }
         // as a last resort, attempt vanilla launcher
