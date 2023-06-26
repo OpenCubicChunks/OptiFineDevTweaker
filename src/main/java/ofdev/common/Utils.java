@@ -15,8 +15,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Utils {
@@ -84,12 +86,29 @@ public class Utils {
             return absolutePath;
         }
         String mcVersion = mcVersion();
+        List<Path> attemptedPaths = new ArrayList<>();
 
         if (maybeFgCache != null) {
             // provided likely FG cache:
+            Path fg1fg2Path = maybeFgCache.resolve("net/minecraft/minecraft")
+                    .resolve(mcVersion).resolve("minecraft-" + mcVersion + ".jar").toAbsolutePath();
+            attemptedPaths.add(fg1fg2Path);
+            if (Files.exists(fg1fg2Path)) {
+                LOGGER.info("Found Minecraft jar {} from FG1.x/FG2.x (provided cache)", fg1fg2Path);
+                return fg1fg2Path;
+            }
+            // RetroFuturaGradle https://github.com/GTNewHorizons/RetroFuturaGradle
+            //caches/retro_futura_gradle/mc-vanilla/1.12.2/
+            Path rfgPath = maybeFgCache.resolve("mc-vanilla").resolve(mcVersion).resolve(mcVersion + ".jar").toAbsolutePath();
+            attemptedPaths.add(rfgPath);
+            if (Files.exists(rfgPath)) {
+                LOGGER.info("Found Minecraft jar {} from RetroFuturaGradle (provided cache)", rfgPath);
+                return rfgPath;
+            }
             // FG3 - FG5
             Path fg3plusPath = maybeFgCache.resolve("minecraft_repo/versions")
                     .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+            attemptedPaths.add(fg3plusPath);
             if (Files.exists(fg3plusPath)) {
                 LOGGER.info("Found Minecraft jar {} from FG3+ (provided cache)", fg3plusPath);
                 return fg3plusPath;
@@ -97,6 +116,7 @@ public class Utils {
             // very old FG3 versions used slightly different path
             Path oldFg3Path = maybeFgCache.resolve("minecraft_repo/version")
                     .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+            attemptedPaths.add(oldFg3Path);
             if (Files.exists(oldFg3Path)) {
                 LOGGER.info("Found Minecraft jar {} from old FG3 (provided cache)", oldFg3Path);
                 return oldFg3Path;
@@ -112,6 +132,7 @@ public class Utils {
         // FG1 - FG2
         Path fg1fg2Path = gradleHome.resolve("caches/minecraft/net/minecraft/minecraft")
                         .resolve(mcVersion).resolve("minecraft-" + mcVersion + ".jar").toAbsolutePath();
+        attemptedPaths.add(fg1fg2Path);
         if (Files.exists(fg1fg2Path)) {
             LOGGER.info("Found Minecraft jar {} from FG1.x/FG2.x (global cache)", fg1fg2Path);
             return fg1fg2Path;
@@ -120,6 +141,7 @@ public class Utils {
         //caches/retro_futura_gradle/mc-vanilla/1.12.2/
         Path rfgPath = gradleHome.resolve("caches/retro_futura_gradle/mc-vanilla")
                 .resolve(mcVersion).resolve(mcVersion + ".jar").toAbsolutePath();
+        attemptedPaths.add(rfgPath);
         if (Files.exists(rfgPath)) {
             LOGGER.info("Found Minecraft jar {} from RetroFuturaGradle (global cache)", rfgPath);
             return rfgPath;
@@ -128,6 +150,7 @@ public class Utils {
         // FG3 - FG5
         Path fg3plusPath = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/versions")
                 .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+        attemptedPaths.add(fg3plusPath);
         if (Files.exists(fg3plusPath)) {
             LOGGER.info("Found Minecraft jar {} from FG3+ (global cache)", fg3plusPath);
             return fg3plusPath;
@@ -135,18 +158,19 @@ public class Utils {
         // very old FG3 versions used slightly different path
         Path oldFg3Path = Utils.gradleHome().resolve("caches/forge_gradle/minecraft_repo/version")
                 .resolve(mcVersion).resolve("client.jar").toAbsolutePath();
+        attemptedPaths.add(oldFg3Path);
         if (Files.exists(oldFg3Path)) {
             LOGGER.info("Found Minecraft jar {} from old FG3 (global cache)", oldFg3Path);
             return oldFg3Path;
         }
         // as a last resort, attempt vanilla launcher
         Path mcLauncherJar = Paths.get(System.getProperty("user.home")).resolve(".minecraft/versions").resolve(mcVersion).resolve(mcVersion + ".jar");
+        attemptedPaths.add(mcLauncherJar);
         if (Files.exists(mcLauncherJar)) {
             LOGGER.info("Found Minecraft jar {} from Minecraft Launcher", mcLauncherJar);
             return mcLauncherJar;
         }
-        String list = String.join("\n\t",
-                fg1fg2Path.toString(), rfgPath.toString(), fg3plusPath.toString(), oldFg3Path.toString(), mcLauncherJar.toString());
+        String list = String.join("\n\t", attemptedPaths.stream().map(Object::toString).toArray(String[]::new));
         throw new IllegalStateException("Could not fine Minecraft jar file. Try specifying Minecraft jar location with -Dofdev.mcjar=path\n\t"
                 + "Attempted locations:\n\t" + list);
     }

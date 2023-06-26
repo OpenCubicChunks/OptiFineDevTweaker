@@ -33,6 +33,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -42,11 +43,16 @@ import java.util.Set;
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
 public class OptifineDevTransformerWrapper implements IClassTransformer {
 
-    private static final Path MC_JAR = Utils.findMinecraftJar(null);
+    private static final Path MC_JAR;
     private static final FileSystem mcJarFs;
 
     static {
         try {
+            Map<String, String> launchArgs = (Map<String, String>) Launch.blackboard.get("launchArgs");
+            String assetsDir = launchArgs == null ? null : launchArgs.get("--assetsDir");
+            // it just so happens that FG1,2,3+ and RetroFuturaGradle all have assets dir in about the same place relative to everything else
+            Path mcGradleCacheDir = assetsDir == null ? null : Paths.get(assetsDir).getParent();
+            MC_JAR = Utils.findMinecraftJar(mcGradleCacheDir);
             mcJarFs = FileSystems.newFileSystem(MC_JAR, Launch.classLoader);
             Launch.classLoader.addURL(MC_JAR.toUri().toURL());
         } catch (IOException e) {
