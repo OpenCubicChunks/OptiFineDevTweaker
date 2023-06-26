@@ -50,6 +50,7 @@ public class OFDevTransformationService implements ITransformationService {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static Path mcJar;
+    private static FileSystem mcJarFileSystem;
     public static Path CLASS_DUMP_LOCATION;
 
     private static IEnvironment env;
@@ -60,18 +61,22 @@ public class OFDevTransformationService implements ITransformationService {
     }
 
     @Override public void initialize(IEnvironment environment) {
-        mcJar = Utils.findMinecraftJar();
+        Path fgCacheDir = environment.getProperty(IEnvironment.Keys.ASSETSDIR.get()).map(Path::getParent).orElse(null);
+        mcJar = Utils.findMinecraftJar(fgCacheDir);
         try {
-            Path classDump = Paths.get(".").toAbsolutePath().normalize().resolve(".optifineDev.classes");
-            Utils.rm(classDump);
-            CLASS_DUMP_LOCATION = classDump;
+            mcJarFileSystem = FileSystems.newFileSystem(mcJar, OFDevTransformationService.class.getClassLoader());
+
+            if (Utils.DUMP_CLASSES) {
+                Path classDump = Paths.get(".").toAbsolutePath().normalize().resolve(".optifineDev.classes");
+                Utils.rm(classDump);
+                CLASS_DUMP_LOCATION = classDump;
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
     @Override public void beginScanning(IEnvironment environment) {
-
     }
 
     @Override public void onLoad(IEnvironment envIn, Set<String> otherServices) throws IncompatibleEnvironmentException {
@@ -154,11 +159,11 @@ public class OFDevTransformationService implements ITransformationService {
 
     // called from asm-generated code
     @SuppressWarnings("unused") public static InputStream getResourceStream(String path) {
-        try(FileSystem fs = FileSystems.newFileSystem(mcJar, OFDevTransformationService.class.getClassLoader())){
-            if (!path.startsWith("/")) {
-                path = '/' + path;
-            }
-            Path file = fs.getPath(path);
+        if (!path.startsWith("/")) {
+            path = '/' + path;
+        }
+        Path file = mcJarFileSystem.getPath(path);
+        try {
             return Files.newInputStream(file);
         } catch (IOException e) {
             return OFDevTransformationService.class.getResourceAsStream(path);

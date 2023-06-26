@@ -20,7 +20,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class Utils {
-    private static final boolean DUMP_CLASSES = !Boolean.getBoolean("ofdev.skipDumpClasses");
+    public static final boolean DUMP_CLASSES = !Boolean.getBoolean("ofdev.skipDumpClasses");
     private static final String CUSTOM_MC_VERSION = System.getProperty("ofdev.mcVersion");
     private static final String CUSTOM_MC_JAR = System.getProperty("ofdev.mcjar");
     public static final Logger LOGGER = LogManager.getLogger("OptiFineDevTweaker");
