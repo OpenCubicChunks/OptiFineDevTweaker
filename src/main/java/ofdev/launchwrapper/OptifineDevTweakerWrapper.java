@@ -109,6 +109,7 @@ public class OptifineDevTweakerWrapper implements ITweaker {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        Utils.checkAndNotifyExtractedOptifineJar(Launch.classLoader);
     }
 
     @Override public void injectIntoClassLoader(LaunchClassLoader classLoader) {

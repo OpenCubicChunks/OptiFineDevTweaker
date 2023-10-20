@@ -41,6 +41,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
     private final OfDevRemapper remapper;
 
     OFDevRetransformer(IEnvironment env) {
+        Utils.checkAndNotifyExtractedOptifineJar(getClass().getClassLoader());
         this.targets = new HashSet<>(findOptiFineClasses(env));
         Optional<BiFunction<INameMappingService.Domain, String, String>> srgtomcp = env.findNameMapping("srg");
         if (!srgtomcp.isPresent()) {

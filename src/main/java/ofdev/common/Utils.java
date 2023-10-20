@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -20,6 +21,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import javax.swing.JOptionPane;
 
 public class Utils {
     public static final boolean DUMP_CLASSES = !Boolean.getBoolean("ofdev.skipDumpClasses");
@@ -222,6 +225,16 @@ public class Utils {
                     }
                 });
             }
+        }
+    }
+
+    public static void checkAndNotifyExtractedOptifineJar(ClassLoader cl) {
+        URL resource = cl.getResource("/patch");
+        if (resource == null) {
+            String message = "OptiFine patches not detected in OptiFine jar! This likely means you are trying to use extracted "
+                    + "OptiFine jar. This is not going to work. Use jar downloaded from https://optifine.net/ as-is.";
+            LOGGER.error(message, new RuntimeException(message));
+            JOptionPane.showMessageDialog(null, message);
         }
     }
 
