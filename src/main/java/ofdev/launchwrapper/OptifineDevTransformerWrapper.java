@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
 public class OptifineDevTransformerWrapper implements IClassTransformer {
@@ -79,6 +80,12 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         }
 
         try {
+            boolean isOptifineClass = Stream.of("optifine.", "net.minecraft.", "net.minecraftforge.", "net.optifine.").anyMatch(name::startsWith)
+                    || !name.contains(".");
+            if (!isOptifineClass) {
+                return basicClass;
+            }
+
             String classJvmName = name.replace(".", "/");
 
             String notchName = remapper.notchFromMcp(classJvmName);
@@ -89,6 +96,7 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             byte[] ofTransformedCode = getOptifineTransformedBytecode(name, basicClass, notchName, vanillaCode, isModified);
             // deobfuscate OptiFine transformed code to MCP names
             // this attempts to transform all the code but it shouldn't be an issue
+            // (cacpixel) it's a big issue because some MCP name can be conflicted with other NOTCH names
             ClassNode ofTransformedDeobfNode = toDeobfClassNode(ofTransformedCode);
             ClassNode vanillaDeobfNode = toDeobfClassNode(vanillaCode);
             ClassNode originalForgeNode = getClassNode(basicClass);
