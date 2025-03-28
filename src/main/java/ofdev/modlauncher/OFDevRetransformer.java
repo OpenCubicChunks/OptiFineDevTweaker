@@ -104,7 +104,7 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                     // jar:file:///home/bartosz/Desktop/dev/java/Minecraft/forge-1.20.4-49.2-mdk/run/mods/OptiFine_1.20.4_HD_U_I7.jar!/
                     // everything after jar: is the scheme specific part
                     String schemeSpecific = uri.getRawSchemeSpecificPart();
-                    if (!schemeSpecific.endsWith("!/")) {
+                    if (!schemeSpecific.endsWith("!/") && !schemeSpecific.endsWith("!\\")) {
                         throw new IllegalStateException("Unexpected URI format");
                     }
                     String fileUri = schemeSpecific.substring(0, schemeSpecific.length() - 2);
