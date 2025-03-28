@@ -20,6 +20,7 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -94,13 +95,35 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                 Object reference = referenceMethod.invoke(optiModule.get());
                 Method locationMethod = Class.forName("java.lang.module.ModuleReference").getMethod("location");
                 @SuppressWarnings("unchecked") Optional<URI> location = (Optional<URI>) locationMethod.invoke(reference);
-                String path = location.orElseThrow(() -> new IllegalStateException("No module location!")).getPath();
-                optifineFile = path.substring(0, path.lastIndexOf('#'));
-                if (optifineFile.startsWith("/")) {
-                    optifineFile = optifineFile.substring(1);
+                URI uri = location.orElseThrow(() -> new IllegalStateException("No module location!"));
+                LOGGER.error("OptiFine URI " + uri);
+                if (uri.getScheme().equals("jar")) {
+                    // TODO: instead of this roundabout way of extracting the path out of URI and then creating
+                    //       a zip filesystem out of that, maybe try to create a zipfs directly from URI?
+                    // in 1.20.4+ this somehow changed, now the URI looks like this:
+                    // jar:file:///home/bartosz/Desktop/dev/java/Minecraft/forge-1.20.4-49.2-mdk/run/mods/OptiFine_1.20.4_HD_U_I7.jar!/
+                    // everything after jar: is the scheme specific part
+                    String schemeSpecific = uri.getRawSchemeSpecificPart();
+                    if (!schemeSpecific.endsWith("!/")) {
+                        throw new IllegalStateException("Unexpected URI format");
+                    }
+                    String fileUri = schemeSpecific.substring(0, schemeSpecific.length() - 2);
+                    optifineFile = Paths.get(new URI(fileUri).getPath()).getFileName().toString();
+                } else if (uri.getScheme().equals("union")) {
+                    // Mod URI looks like this:
+                    // union:/home/bartosz/Desktop/dev/java/Minecraft/OptiFineDev/tests/forgemdk-1.19.4-45.1.0/run/mods/OptiFine_1.19.4_HD_U_I4.jar%23180!/
+                    // and URI path looks like this:
+                    // /home/bartosz/Desktop/dev/java/Minecraft/OptiFineDev/tests/forgemdk-1.19.4-45.1.0/run/mods/OptiFine_1.19.4_HD_U_I4.jar#180!/
+                    String path = uri.getPath();
+                    optifineFile = path.substring(0, path.lastIndexOf('#'));
+                    if (optifineFile.startsWith("/")) { // why was this needed?
+                        optifineFile = optifineFile.substring(1);
+                    }
+                } else {
+                    throw new IllegalStateException("Unsupported URI scheme for " + uri);
                 }
                 optifineFile = Paths.get(optifineFile).getFileName().toString();
-            } catch (ReflectiveOperationException ex) {
+            } catch (ReflectiveOperationException | URISyntaxException ex) {
                 throw new IllegalStateException(ex);
             }
         }
