@@ -7,6 +7,7 @@ import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
 import ofdev.common.Utils;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
@@ -53,11 +54,13 @@ public class OptifineDevRemapper extends Remapper {
         }
         String notch2mcpProp = System.getProperty("net.minecraftforge.gradle.GradleStart.srg.notch-mcp");
         if (notch2mcpProp != null) {
+            LOGGER.info("Found notch-mcp mappings file " + notch2mcpProp);
             NOTCH_MCP = new OptifineDevRemapper(notch2mcpProp);
         } else {
             String srg2mcp = System.getProperty("net.minecraftforge.gradle.GradleStart.srg.srg-mcp");
             if (srg2mcp == null)
                 throw new IllegalStateException("Current version of ForgeGradle is not supported! Please report us!");
+            LOGGER.info("Found srg-mcp mappings file " + srg2mcp);
             NOTCH_MCP = new OptifineDevRemapper(Utils.mcVersion(), srg2mcp);
         }
     }
@@ -121,10 +124,12 @@ public class OptifineDevRemapper extends Remapper {
     public void setupForFG3(LaunchClassLoader classLoader, String minecraftVersion, String srg2mcp) {
         this.classLoader = classLoader;
         try {
+            LOGGER.info("Loading Notch2Srg data from forge jar!");
             // deobfuscation_data contains notch2srg mapping
             String dataName = "deobfuscation_data-" + minecraftVersion + ".lzma";
             List<String> notch2srgLines = readLines(new LzmaInputStream(
                     Launch.class.getClassLoader().getResourceAsStream(dataName)));
+            LOGGER.info("Found " + notch2srgLines.size() + " lines of notch2srg data!");
 
             Map<String, Map<String, String>> notch2srgMethodMaps = new HashMap<>();
             Map<String, Map<String, String>> notch2srgFieldMaps = new HashMap<>();
@@ -326,9 +331,12 @@ public class OptifineDevRemapper extends Remapper {
         if (classNameMap == null || classNameMap.isEmpty()) {
             return name;
         }
+
         Map<String, String> fieldMap = getFieldMap(owner, raw);
-        return fieldMap != null && fieldMap.containsKey(name + ":" + desc) ? fieldMap.get(name + ":" + desc) :
+        String ret = fieldMap != null && fieldMap.containsKey(name + ":" + desc) ? fieldMap.get(name + ":" + desc) :
                 fieldMap != null && fieldMap.containsKey(name + ":null") ? fieldMap.get(name + ":null") : name;
+        //System.out.println("Mapping field " + owner + "." + name + "(" + desc + ") raw=" + raw + " ---> " + ret);
+        return ret;
     }
 
     @Override
@@ -336,13 +344,31 @@ public class OptifineDevRemapper extends Remapper {
         if (classNameMap == null || classNameMap.isEmpty()) {
             return typeName;
         }
+        if (typeName.endsWith(";")) {
+            // descriptor... somehow
+            Type t = Type.getType(typeName);
+            if (t.getSort() == Type.ARRAY) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < t.getDimensions(); i++) {
+                    sb.append('[');
+                }
+                sb.append('L');
+                return sb.append(map(t.getElementType().getInternalName())).append(';').toString();
+            } else {
+                return 'L' + map(t.getInternalName()) + ';';
+            }
+        }
         if (classNameMap.containsKey(typeName)) {
+            //System.out.println("Mapping " + typeName + " to " + classNameMap.get(typeName));
             return classNameMap.get(typeName);
         }
         int dollarIdx = typeName.lastIndexOf('$');
         if (dollarIdx > -1) {
-            return map(typeName.substring(0, dollarIdx)) + "$" + typeName.substring(dollarIdx + 1);
+            String ret = map(typeName.substring(0, dollarIdx)) + "$" + typeName.substring(dollarIdx + 1);
+            //System.out.println("Mapping " + typeName + " to " + ret);
+            return ret;
         }
+        //System.out.println("Mapping " + typeName + " to " + typeName);
         return typeName;
     }
 
@@ -350,7 +376,20 @@ public class OptifineDevRemapper extends Remapper {
         if (classNameMap == null || classNameMap.isEmpty()) {
             return typeName;
         }
-
+        if (typeName.endsWith(";")) {
+            // descriptor... somehow
+            Type t = Type.getType(typeName);
+            if (t.getSort() == Type.ARRAY) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < t.getDimensions(); i++) {
+                    sb.append('[');
+                }
+                sb.append('L');
+                return sb.append(unmap(t.getElementType().getInternalName())).append(';').toString();
+            } else {
+                return 'L' + unmap(t.getInternalName()) + ';';
+            }
+        }
         if (classNameMap.containsValue(typeName)) {
             return classNameMapInverse.get(typeName);
         }
@@ -367,6 +406,7 @@ public class OptifineDevRemapper extends Remapper {
         if (classNameMap == null || classNameMap.isEmpty()) {
             return name;
         }
+        //System.out.println("Mapping method " + owner + "." + name + "(" + desc + ")");
         Map<String, String> methodMap = getMethodMap(owner);
         String methodDescriptor = name + desc;
         return methodMap != null && methodMap.containsKey(methodDescriptor) ? methodMap.get(methodDescriptor) : name;

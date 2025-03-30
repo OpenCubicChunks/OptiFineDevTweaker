@@ -85,8 +85,8 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             if (!isOptifineClass) {
                 return basicClass;
             }
-
             String classJvmName = name.replace(".", "/");
+            //System.out.println("XF " + classJvmName);
 
             String notchName = remapper.notchFromMcp(classJvmName);
             byte[] vanillaCode = extractVanillaBytecode(basicClass, notchName);
