@@ -7,6 +7,9 @@ import java.util.function.BiFunction;
 
 public class OfDevRemapper extends Remapper {
 
+    // TODO: this is needed for 1.21.x, figure out how to handle this automatically
+    public static final boolean SKIP_REMAP_HACKS = System.getProperty("ofdev.skipRemapHacks", "false").equalsIgnoreCase("true");
+
     private final BiFunction<INameMappingService.Domain, String, String> srg2mcp;
 
     OfDevRemapper(BiFunction<INameMappingService.Domain, String, String> srg2mcp) {
@@ -22,6 +25,19 @@ public class OfDevRemapper extends Remapper {
     }
 
     @Override public String mapMethodName(final String owner, final String name, final String descriptor) {
+        String newName = applyConflictResolutionHacks(owner, name);
+        String method = srg2mcp.apply(INameMappingService.Domain.METHOD, newName);
+        if (method.equals(newName)) {
+            // record components are technically methods but mapped as fields
+            method = srg2mcp.apply(INameMappingService.Domain.FIELD, newName);
+        }
+        return method;
+    }
+
+    private static String applyConflictResolutionHacks(String owner, String name) {
+        if (SKIP_REMAP_HACKS) {
+            return name;
+        }
         if (owner.equals("net/minecraft/client/world/ClientWorld") && name.equals("onEntityRemoved")) {
             return "onEntityRemoved_OF";
         }
@@ -47,12 +63,7 @@ public class OfDevRemapper extends Remapper {
         if (owner.equals("net/minecraft/client/resources/model/ModelBakery") && name.equals("loadBlockModel")) {
             return "loadBlockModel_OF";
         }
-        String method = srg2mcp.apply(INameMappingService.Domain.METHOD, name);
-        if (method.equals(name)) {
-            // record components are technically methods but mapped as fields
-            method = srg2mcp.apply(INameMappingService.Domain.FIELD, name);
-        }
-        return method;
+        return name;
     }
 
     @Override public String mapFieldName(final String owner, final String name, final String descriptor) {
