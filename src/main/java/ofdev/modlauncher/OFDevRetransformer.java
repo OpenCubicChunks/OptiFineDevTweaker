@@ -116,11 +116,13 @@ public class OFDevRetransformer implements ITransformer<ClassNode> {
                     // /home/bartosz/Desktop/dev/java/Minecraft/OptiFineDev/tests/forgemdk-1.19.4-45.1.0/run/mods/OptiFine_1.19.4_HD_U_I4.jar#180!/
                     String path = uri.getPath();
                     optifineFile = path.substring(0, path.lastIndexOf('#'));
-                    if (optifineFile.startsWith("/")) { // why was this needed?
-                        optifineFile = optifineFile.substring(1);
-                    }
                 } else {
                     throw new IllegalStateException("Unsupported URI scheme for " + uri);
+                }
+                // On Windows the path begins with a "/" which causes problems when using Paths.get(), so strip it off
+                // this is an absolute path but we don't actually nneed it to work as we only get filename
+                if (optifineFile.startsWith("/")) { // why was this needed?
+                    optifineFile = optifineFile.substring(1);
                 }
                 optifineFile = Paths.get(optifineFile).getFileName().toString();
             } catch (ReflectiveOperationException | URISyntaxException ex) {
