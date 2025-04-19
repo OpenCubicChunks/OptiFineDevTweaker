@@ -1,6 +1,7 @@
 package ofdev.launchwrapper;
 
 import static java.lang.reflect.Modifier.isPrivate;
+import net.minecraft.launchwrapper.LaunchClassLoader;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
@@ -37,8 +38,10 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 // this is needed only in dev environment to get deobfuscated version of OptiFine running
@@ -46,6 +49,8 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
 
     private static final Path MC_JAR;
     private static final FileSystem mcJarFs;
+
+    private static final List<IClassTransformer> transformers;
 
     static {
         try {
@@ -56,6 +61,10 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             MC_JAR = Utils.findMinecraftJar(mcGradleCacheDir);
             mcJarFs = FileSystems.newFileSystem(MC_JAR, Launch.classLoader);
             Launch.classLoader.addURL(MC_JAR.toUri().toURL());
+
+
+            transformers = Utils.getFieldValue(LaunchClassLoader.class, Launch.classLoader, "transformers");
+
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -78,9 +87,13 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             // let it crash
             return null;
         }
+        if (name.equals("cpw.mods.fml.common.Loader")) {
+            return injectCallbackForCodechickenAsm(basicClass);
+        }
 
         try {
-            boolean isOptifineClass = Stream.of("optifine.", "net.minecraft.", "net.minecraftforge.", "net.optifine.").anyMatch(name::startsWith)
+            boolean isOptifineClass =
+                    Stream.of("optifine.", "net.minecraft.", "net.minecraftforge.", "net.optifine.", "shadersmod.").anyMatch(name::startsWith)
                     || !name.contains(".");
             if (!isOptifineClass) {
                 return basicClass;
@@ -116,12 +129,47 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
             ofTransformedDeobfNode.accept(classWriter);
             byte[] output = classWriter.toByteArray();
 
-            if (isModified.get() || (!transformedName.contains(".") || transformedName.startsWith("optifine") || transformedName.startsWith("net.optifine"))) {
+            if (isModified.get() || (!transformedName.contains(".") ||
+                    transformedName.startsWith("shadersmod.") || transformedName.startsWith("optifine") || transformedName.startsWith("net.optifine"))) {
                 Utils.dumpBytecode(OptifineDevTweakerWrapper.CLASS_DUMP_LOCATION, transformedName, output);
             }
             return output;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private byte[] injectCallbackForCodechickenAsm(byte[] basicClass) {
+        ClassNode cn = new ClassNode();
+        ClassReader cr = new ClassReader(basicClass);
+        cr.accept(cn, 0);
+
+        MethodNode clinit = cn.methods.stream().filter(m->m.name.equals("<clinit>")).findFirst()
+                .orElseThrow(()->new RuntimeException("No <clinit>"));
+        InsnList instructions = clinit.instructions;
+        instructions.insert(instructions.get(0), new MethodInsnNode(
+                Opcodes.INVOKESTATIC,
+                "ofdev/launchwrapper/OptifineDevTransformerWrapper",
+                "applyTransformerOrder",
+                "()V", false));
+        ClassWriter cw = new ClassWriter(0);
+        cn.accept(cw);
+        return cw.toByteArray();
+    }
+
+    public static void applyTransformerOrder() {
+        if (!transformers.get(0).getClass().getName().equals("ofdev.launchwrapper.OptifineDevTweakerWrapper$OptiFineTransformerTransformer")) {
+            for (int i = 0; i < transformers.size(); i++) {
+                if (transformers.get(i).getClass().getName().equals("ofdev.launchwrapper.OptifineDevTweakerWrapper$OptiFineTransformerTransformer")) {
+                    IClassTransformer rem = transformers.remove(i);
+                    transformers.add(0, rem);
+                }
+                if (transformers.get(i).getClass().getName().equals("ofdev.launchwrapper.OptifineDevTransformerWrapper")) {
+                    IClassTransformer rem = transformers.remove(i);
+                    transformers.add(1, rem);
+                }
+            }
+            assert transformers.get(0).getClass().getName().equals("ofdev.launchwrapper.OptifineDevTweakerWrapper$OptiFineTransformerTransformer");
         }
     }
 
@@ -274,7 +322,9 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
         Remapper videoSettingsFixer = new Remapper() {
             @Override
             public String mapFieldName(String owner, String name, String desc) {
-                if ((owner.startsWith("optifine") || owner.startsWith("shadersmod") || owner.equals("net/minecraft/client/gui/GuiVideoSettings") || owner.equals("bef")) && name.equals("fontRendererObj")) {
+                if ((owner.startsWith("optifine") ||
+                        owner.startsWith("shadersmod") || owner.equals("net/minecraft/client/gui/GuiVideoSettings")
+                        || owner.equals("bef")) && name.equals("fontRendererObj")) {
                     return "fontRendererObj_OF";
                 }
                 return super.mapFieldName(owner, name, desc);
@@ -287,7 +337,8 @@ public class OptifineDevTransformerWrapper implements IClassTransformer {
     }
 
     private byte[] getOptifineTransformedBytecode(String name, byte[] basicClass, String notchName, byte[] vanillaCode, Mutable<Boolean> isModified) {
-        byte[] ofTransformedCode = name.startsWith("optifine") ? vanillaCode : ofTransformer.transform(notchName, notchName, vanillaCode);
+        byte[] ofTransformedCode = name.startsWith("optifine") || name.startsWith("shadersmod") ? vanillaCode : ofTransformer.transform(notchName,
+                notchName, vanillaCode);
 
         if (ofTransformedCode == vanillaCode) {
             ofTransformedCode = basicClass;
